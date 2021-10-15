@@ -13,16 +13,26 @@
 		  -y (5y + 10x - 12xy - 4)]^T / 3.
  * 
  * Author: Jukka Räbinä, University of Jyväskylä, 2020.
+ * 
+ * 
+ * GENERAL QUESTIONS:
+ * what are flags?
+ * what is integrateDerivative? integrateHodge?
+ * what are quadratures?
+ * node weight?
+ * general form of a grid?
+ * how mpi works?
+ * template meaning?
  */
 
-#include "../../GFD/Mesh/BuilderMesh.hpp"
-#include "../../GFD/Mesh/PartMesh.hpp"
-#include "../../GFD/Output/MeshDrawer.hpp"
-#include "../../GFD/Types/Types.hpp"
-#include "../../GFD/Types/MpiEasy.hpp"
-#include "../../GFD/Discrete/Dec.hpp"
-#include <iostream>
-#include <chrono>
+#include "../../GFD/Mesh/BuilderMesh.hpp"	//for building and modifying a mesh
+#include "../../GFD/Mesh/PartMesh.hpp"	//for working with parts of a mesh??
+#include "../../GFD/Output/MeshDrawer.hpp"	//for drawing a mesh
+#include "../../GFD/Types/Types.hpp"	//constants, shorter names for types, type couple
+#include "../../GFD/Types/MpiEasy.hpp"	//for parallel computing
+#include "../../GFD/Discrete/Dec.hpp"	//for making outer derivative and hodge?? also includes meshintegrator
+#include <iostream>	//input-output-stream
+#include <chrono>	//For recording time
 
 using namespace std;
 using namespace gfd;
@@ -32,16 +42,17 @@ const uint space_steps = 8; // number of space elements per unit length
 const uint time_steps = 12; // number of time elements per unit time
 const uint grid_type = 0; // 2d grid type: 0 = squares, 1 = triangles, 2 = snubsquare
 
+//const Buffer<double> &q = memorylocation of a buffer of doubles, q[i] references the i:th element in the buffer?
 double funcU(const Buffer<double> &q) { // analytic function for u
 	const Vector2 v(q[0], q[1]);
 	const Vector2 p(q[2], q[3]);
-	const double common = p.x * (1.0 - p.x) * p.y * (1.0 - p.y);
-	return common * (p.y * v.x - p.x * v.y);
+	const double common = p.x * (1.0 - p.x) * p.y * (1.0 - p.y);	//(x-x^2)(y-y^2)
+	return common * (p.y * v.x - p.x * v.y);	//dot product for line integration?? where is t^2?
 }
 double funcV(const Buffer<double> &q) { // analytic function for v
 	const double v(q[0]);
 	const Vector2 p(q[1], q[2]);
-	return p.x * p.y * (5.0 * p.x + 5.0 * p.y - 6.0 * p.x * p.y - 4.0) * v / 3.0;
+	return p.x * p.y * (5.0 * p.x + 5.0 * p.y - 6.0 * p.x * p.y - 4.0) * v / 3.0;	//where is t^3? only evaluated at t=1? what is v?
 }
 double funcA(const Buffer<double> &q) { // analytic function for a
 	const Vector2 v(q[0], q[1]);
@@ -60,14 +71,14 @@ bool createMesh(PartMesh &mesh) {
 		if(mesh.getPart() == 0) cout << "MPI mesh generation is not implemented." << endl;
 		return false;
 	}
-	BuilderMesh bmesh(mesh.getDimension());
+	BuilderMesh bmesh(mesh.getDimension());	//cpp class instance cmp java: BuildeMesh bmesh = new BuilderMesh(mesh.getDimension());
 	const double hx = 1.0 / double(space_steps);
 	if(grid_type == 0) bmesh.createGrid(Vector4(0,0,0,0), Vector4(1,1,0,0), hx);
 	else if(grid_type == 1) bmesh.createTriangleGrid(Vector2(0,0), Vector2(1,1), hx);
 	else if(grid_type == 2) bmesh.createSnubSquareGrid(Vector2(0,0), Vector2(1,1), hx);
-	bmesh.fillBoundaryFlags(1);
+	bmesh.fillBoundaryFlags(1);	//Requires 2 parameters, second parameter set to default defined in BuilderMesh.hpp
 	
-	if(mesh.getPart() == 0) mesh.swap(bmesh);
+	if(mesh.getPart() == 0) mesh.swap(bmesh);	//set the mesh to the mesh build using bmesh
 	return true;
 }
 void drawSolution(const PartMesh &mesh, const Column<double> &u, const Vector2 &minp, const Vector2 &maxp, const double scale, const string &path) {
@@ -84,7 +95,7 @@ void drawSolution(const PartMesh &mesh, const Column<double> &u, const Vector2 &
 	Buffer<double> full_u;
 	Dec dec(mesh, 0, mesh.getDimension());
 	dec.getFullBuffer(fg_prim1, u, full_u);
-	for (uint i=0; i<col.size(); i++) {
+	for (uint i=0; i<col.size(); i++) {	//transforming the discrete form into a vector field?
 		const Buffer<uint> &e = mesh.getFaceEdges(i);
 		SymMatrix2 A(0,0,0);
 		Vector2 b(0,0);
@@ -101,7 +112,7 @@ void drawSolution(const PartMesh &mesh, const Column<double> &u, const Vector2 &
 		for(uint i=0; i<pic.getWidth(); i++) {
 			const Vector4 color = pic.getColor(i, j);
 			double c[3] = {color.x, color.y, color.z};
-			sumMPI(c, 3);
+			sumMPI(c, 3);	//for combining the work done by multiple processors??
 			pic.setColor(i, j, Vector4(c[0], c[1], c[2], 1));
 		}
 	}
@@ -112,7 +123,7 @@ int main() {
 	auto starttime = chrono::system_clock::now();
 
 	// create mesh
-	PartMesh mesh(0, 1, 2);
+	PartMesh mesh(0, 1, 2);	//partmesh part 0 is the only mesh in the partmesh and has dimension 2. mesh(0,2,2) leads to "MPI mesh generation not implemented"?
 	if(!createMesh(mesh)) return 0;
 	if(getMPIrank() == 0) {
 		cout << "Mesh generated in " << chrono::duration<double>(chrono::system_clock::now() - starttime).count() << " seconds" << endl;
@@ -121,12 +132,12 @@ int main() {
 
 	// initialize matrices and vectors
 	Dec dec(mesh, 0,  mesh.getDimension());
-	Derivative d1;
-	dec.integrateDerivative(fg_prim1, d1);
+	Derivative d1;	//Derivative=Sparse<sign> in Form.hpp??
+	dec.integrateDerivative(fg_prim1, d1);	//fg_prim1=number defined in Form.hpp using enum, function sets the values of d1, why does it also return d1?
 	Diagonal<double> h2;
-	dec.integrateHodge(HodgeUnit1, 0, fg_prim2, h2);
+	dec.integrateHodge(HodgeUnit1, 0, fg_prim2, h2);	//why is integrateHodge in dec.hpp?
 	Diagonal<double> h1i;
-	dec.integrateHodge(HodgeUnit2, 0, fg_dual1, UintSet(0), h1i);
+	dec.integrateHodge(HodgeUnit2, 0, fg_dual1, UintSet(0), h1i);	//UintSet(0)?
 	Sparse<double> delta1;
 	const double ht = 1.0 / double(time_steps);
 	delta1.setScale(-ht * ht, h1i * transpose(d1) * h2);

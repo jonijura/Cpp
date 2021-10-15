@@ -1485,7 +1485,7 @@ template<typename L, typename R, typename O = decltype(declval<L &>() - declval<
 	return o.setMinus(l, r);
 }
 template<typename L, typename R, typename O = decltype(declval<L &>() - declval<R &>())> Sparse<O> operator-(const Sparse<L> &l, const Diagonal<R> &r) {
-	Sparse<O> o(l.m_zero + r.m_zero);
+	Sparse<O> o(l.m_zero + r.m_zero);//TODO miksi plus eikä miinus?
 	return o.setMinus(l, r);
 }
 template<typename L, typename R, typename O = decltype(declval<L &>() - declval<R &>())> Sparse<O> operator-(const Diagonal<L> &l, const Sparse<R> &r) {
