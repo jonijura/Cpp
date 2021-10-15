@@ -16,22 +16,19 @@
  * 
  * 
  * GENERAL QUESTIONS:
- * what are flags?
- * what is integrateDerivative? integrateHodge?
- * what are quadratures?
+ * how do quadratures work?
  * node weight?
  * general form of a grid?
  * how mpi works?
- * template meaning?
  */
 
 #include "../../GFD/Mesh/BuilderMesh.hpp"	//for building and modifying a mesh
-#include "../../GFD/Mesh/PartMesh.hpp"	//for working with parts of a mesh??
+#include "../../GFD/Mesh/PartMesh.hpp"	//for working with parts of a mesh?
 #include "../../GFD/Output/MeshDrawer.hpp"	//for drawing a mesh
 #include "../../GFD/Types/Types.hpp"	//constants, shorter names for types, type couple
 #include "../../GFD/Types/MpiEasy.hpp"	//for parallel computing
-#include "../../GFD/Discrete/Dec.hpp"	//for making outer derivative and hodge?? also includes meshintegrator
-#include <iostream>	//input-output-stream
+#include "../../GFD/Discrete/Dec.hpp"	//for dec related calculations
+#include <iostream>
 #include <chrono>	//For recording time
 
 using namespace std;
@@ -95,7 +92,7 @@ void drawSolution(const PartMesh &mesh, const Column<double> &u, const Vector2 &
 	Buffer<double> full_u;
 	Dec dec(mesh, 0, mesh.getDimension());
 	dec.getFullBuffer(fg_prim1, u, full_u);
-	for (uint i=0; i<col.size(); i++) {	//transforming the discrete form into a vector field?
+	for (uint i=0; i<col.size(); i++) {	//transforming the discrete form into a vector field? BlockIntegrator?
 		const Buffer<uint> &e = mesh.getFaceEdges(i);
 		SymMatrix2 A(0,0,0);
 		Vector2 b(0,0);
@@ -132,7 +129,7 @@ int main() {
 
 	// initialize matrices and vectors
 	Dec dec(mesh, 0,  mesh.getDimension());
-	Derivative d1;	//Derivative=Sparse<sign> in Form.hpp??
+	Derivative d1;	//Derivative=Sparse<sign> in Form.hpp?? sign in Type.hpp, sign=char??
 	dec.integrateDerivative(fg_prim1, d1);	//fg_prim1=number defined in Form.hpp using enum, function sets the values of d1, why does it also return d1?
 	Diagonal<double> h2;
 	dec.integrateHodge(HodgeUnit1, 0, fg_prim2, h2);	//why is integrateHodge in dec.hpp?
