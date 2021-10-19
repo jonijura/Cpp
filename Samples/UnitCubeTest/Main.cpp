@@ -132,7 +132,7 @@ int main() {
 	Derivative d1;	//Derivative=Sparse<sign> in Form.hpp?? sign in Type.hpp, sign=char??
 	dec.integrateDerivative(fg_prim1, d1);	//fg_prim1=number defined in Form.hpp using enum, function sets the values of d1, why does it also return d1?
 	Diagonal<double> h2;
-	dec.integrateHodge(HodgeUnit1, 0, fg_prim2, h2);	//why is integrateHodge in dec.hpp?
+	dec.integrateHodge(HodgeUnit1, 0, fg_prim2, h2);	//why is integrateHodge in dec.hpp? HodgeUnit1 in quadrature?
 	Diagonal<double> h1i;
 	dec.integrateHodge(HodgeUnit2, 0, fg_dual1, UintSet(0), h1i);	//UintSet(0)?
 	Sparse<double> delta1;
@@ -145,7 +145,7 @@ int main() {
 	Column<double> a(0.0);
 	dec.integrateForm(funcA, 20, fg_prim1, a);
 	Column<double> b(0.0);
-	dec.integrateForm(funcB, 20, fg_prim1, UintSet(0), b);
+	dec.integrateForm(funcB, 20, fg_prim1, UintSet(0), b); //UintSet(0)? related to boundary elements? a==0 on the boundary unlike b
 
 	// integrate forward in time
 	for(uint i=0; i<time_steps; i++) {
