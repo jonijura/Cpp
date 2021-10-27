@@ -1,0 +1,155 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "cppbuild",
+			"label": "Compile",
+			"command": "C:\\Program Files (x86)\\mingw-w64\\i686-8.1.0-posix-dwarf-rt_v6-rev0\\mingw32\\bin\\g++.exe",
+			"args": [
+				"-g",
+				"-Wall",
+				"-Wextra",
+				"-pedantic",
+				"-std=c++11",
+				"-c",
+				"${file}",
+				"-o",
+				"${fileDirname}\\build\\${fileBasenameNoExtension}.o"
+			],
+			"options": {
+				"cwd": "${fileDirname}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"detail": "compiler: \"C:\\Program Files (x86)\\mingw-w64\\i686-8.1.0-posix-dwarf-rt_v6-rev0\\mingw32\\bin\\g++.exe\""
+		},
+		{
+			"type": "cppbuild",
+			"label": "Compile MPI",
+			"command": "C:\\Program Files (x86)\\mingw-w64\\i686-8.1.0-posix-dwarf-rt_v6-rev0\\mingw32\\bin\\g++.exe",
+			"args": [
+				"-I${MSMPI_INC}",
+				"-g",
+				"-Wall",
+				"-Wextra",
+				"-pedantic",
+				"-std=c++11",
+				"-c",
+				"${file}",
+				"-o",
+				"${fileDirname}\\build\\${fileBasenameNoExtension}.o"
+			],
+			"options": {
+				"cwd": "${fileDirname}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"detail": "compiler: \"C:\\Program Files (x86)\\mingw-w64\\i686-8.1.0-posix-dwarf-rt_v6-rev0\\mingw32\\bin\\g++.exe\""
+		},
+		{
+			"type": "cppbuild",
+			"label": "Compile build",
+			"command": "C:\\Program Files (x86)\\mingw-w64\\i686-8.1.0-posix-dwarf-rt_v6-rev0\\mingw32\\bin\\g++.exe",
+			"args": [
+				"-g",
+				"-Wall",
+				"-Wextra",
+				"-pedantic",
+				"-std=c++11",
+				"-c",
+				"${file}",
+				"-o",
+				"..\\..\\build\\${fileBasenameNoExtension}.o"
+			],
+			"options": {
+				"cwd": "${fileDirname}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"detail": "compiler: \"C:\\Program Files (x86)\\mingw-w64\\i686-8.1.0-posix-dwarf-rt_v6-rev0\\mingw32\\bin\\g++.exe\""
+		},
+		{
+			"type": "cppbuild",
+			"label": "Compile build MPI",
+			"command": "C:\\Program Files (x86)\\mingw-w64\\i686-8.1.0-posix-dwarf-rt_v6-rev0\\mingw32\\bin\\g++.exe",
+			"args": [
+				"-I${MSMPI_INC}",
+				"-g",
+				"-Wall",
+				"-Wextra",
+				"-pedantic",
+				"-std=c++11",
+				"-c",
+				"${file}",
+				"-o",
+				"..\\..\\build\\${fileBasenameNoExtension}.o"
+			],
+			"options": {
+				"cwd": "${fileDirname}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"detail": "compiler: \"C:\\Program Files (x86)\\mingw-w64\\i686-8.1.0-posix-dwarf-rt_v6-rev0\\mingw32\\bin\\g++.exe\""
+		},
+		{
+			"type": "cppbuild",
+			"label": "Link",
+			"command": "C:\\Program Files (x86)\\mingw-w64\\i686-8.1.0-posix-dwarf-rt_v6-rev0\\mingw32\\bin\\g++.exe",
+			"args": [
+				"build\\${fileBasenameNoExtension}.o",
+				"..\\..\\build\\Random.o",
+				"..\\..\\build\\Text.o",
+				"..\\..\\build\\Vector.o",
+				"..\\..\\build\\Mesh.o",
+				"..\\..\\build\\DelaunayMesh.o",
+				"..\\..\\build\\PartMesh.o",
+				"..\\..\\build\\BuilderMesh.o",
+				"..\\..\\build\\MeshDrawer.o",
+				"..\\..\\build\\Camera.o",
+				"..\\..\\build\\Picture.o",
+				"..\\..\\build\\MpiEasy.o",
+				"..\\..\\build\\Dec.o",
+				"..\\..\\build\\MeshIntegrator.o",
+				"..\\..\\build\\Quadrature.o",
+				"..\\..\\build\\TimeIntegrator.o",
+				"..\\..\\build\\BlockIntegrator.o",
+				"..\\..\\build\\BlockInterpolator.o",
+				"..\\..\\build\\BlockMesh.o",
+				"C:\\MyTemp\\Lib\\x86\\msmpi.lib",
+				"-o",
+				"${fileDirname}\\build\\${fileBasenameNoExtension}.exe"
+			],
+			"options": {
+				"cwd": "${fileDirname}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"detail": "compiler: \"C:\\Program Files (x86)\\mingw-w64\\i686-8.1.0-posix-dwarf-rt_v6-rev0\\mingw32\\bin\\g++.exe\""
+		},
+	]
+}
