@@ -5,11 +5,11 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "g++.exe - Build and debug active file MPI",
+            "name": "g++.exe debug active file MPI",
             "type": "cppdbg",
             "request": "launch",
             "program": "${fileDirname}\\build\\${fileBasenameNoExtension}.exe",
-            "args": [],
+            "args": ["mesh2.txt"],
             "stopAtEntry": true,
             "cwd": "${fileDirname}",
             "environment": [],
@@ -23,7 +23,7 @@
                     "ignoreFailures": true
                 }
             ],
-            "preLaunchTask": "Compile MPI"
+            "preLaunchTask": []
         }
     ]
 }

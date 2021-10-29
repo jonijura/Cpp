@@ -52,6 +52,7 @@ public:
 		uint i, j, k, l;
 		const uint irank = getMPIrank();
 		const uint ranks = getMPIranks();
+		if (ranks == 1){cout << "print not implemented" <<endl; return;}
 		uint col0 = 0;
 		if(irank > 0) recvMPI(&col0, sizeof(uint), irank - 1, 0);
 		uint col1 = col0 + m_width;
@@ -848,7 +849,7 @@ public:
 		return toSparse();
 	}
 	template<typename L, typename R> Sparse &setTimes(const Diagonal<L> &l, const Sparse<R> &r) {
-		if(orMPI(l.m_height != r.m_height)) return setEmpty(); // the dimensions do not match
+		if(orMPI(l.m_height != r.m_height)){cout<< "dimension mismatch"<< endl; return setEmpty();} // the dimensions do not match
 		uint i, j, k, n;
 		if(l.m_full) { // l is a full diagonal matrix
 			if(this != (void*)&r) setShape(r); // this and r are not equal -> initialize this
@@ -968,7 +969,7 @@ public:
 		return *this;
 	}
 	template<typename L, typename R> Sparse &setTimes(const Sparse<L> &l, const Diagonal<R> &r) {
-		if(orMPI(l.m_width != r.m_height)) return setEmpty(); // the dimensions do not match
+		if(orMPI(l.m_width != r.m_height)){cout << "dimension mismatch" <<endl; return setEmpty();} // the dimensions do not match
 		uint i, j, k, n;
 		if(r.m_full) { // the diagonal matrix is full
 			if(this != (void*)&l) setShape(l); // this and l are not equal -> initialize this

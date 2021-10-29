@@ -35,8 +35,8 @@ using namespace std;
 using namespace gfd;
 
 // modify these constants:
-const uint space_steps = 8; // number of space elements per unit length
-const uint time_steps = 12; // number of time elements per unit time
+const uint space_steps = 64; // number of space elements per unit length
+const uint time_steps = 128; // number of time elements per unit time
 const uint grid_type = 0; // 2d grid type: 0 = squares, 1 = triangles, 2 = snubsquare
 
 //const Buffer<double> &q = memorylocation of a buffer of doubles, q[i] references the i:th element in the buffer?

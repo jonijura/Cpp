@@ -58,7 +58,7 @@ public:
 	template<typename L, typename R> Column &setMinus(const Diagonal<L> &l, const Diagonal<R> &r) { Discrete<T>::setMinus(l, r); return *this; }
 	template<typename L, typename R> Column &setTimes(const Diagonal<L> &l, const Diagonal<R> &r) { Discrete<T>::setTimes(l, r); return *this; }
 	template<typename L, typename R> Column &setTimes(const Sparse<L> &l, const Diagonal<R> &r) {
-		if(orMPI(l.m_width != r.m_height)) { Discrete<T>::setEmpty(); return *this; } // the dimensions do not match
+		if(orMPI(l.m_width != r.m_height)) { Discrete<T>::setEmpty(); cout << "dimension mismatch" <<endl; return *this; } // the dimensions do not match       
 		uint i, j, k, n;
 		Buffer<T> val(l.m_beg.size(), this->m_zero);
 		if(r.m_full) {
