@@ -8,6 +8,7 @@
             "name": "g++.exe debug active file MPI",
             "type": "cppdbg",
             "request": "launch",
+            "preLaunchTask": "Link",
             "program": "${fileDirname}\\build\\${fileBasenameNoExtension}.exe",
             "args": ["mesh2.txt"],
             "stopAtEntry": true,
@@ -22,8 +23,7 @@
                     "text": "-enable-pretty-printing",
                     "ignoreFailures": true
                 }
-            ],
-            "preLaunchTask": []
+            ]
         }
     ]
 }

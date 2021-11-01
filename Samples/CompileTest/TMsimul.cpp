@@ -1,6 +1,7 @@
 /*Yritetään toistaa pyDEC:illä tuotettuja simulaatiotuloksia
 
 MPI ei toimi, tekee saman homman useammassa prosessissa. muuta kääntäjäasetuksia?
+Kuinka voin debugatessa tarkastella bufferin lukuja ilman segventation faulttia?
 
 koodipohjan ongelmia:
 index out of bounds ei kaada ohjelmaa tai heitä varoitusta
@@ -10,15 +11,7 @@ verkkojen tallennusmuoto ei ole järkevä, pitäisi olla ainakin numeropohjainen
 kommentit puuttuu lähes kaikkialta
 testifunktiot puuttuu kaikkialta?
 paljon turhaa toistoa
-onko luokkarakenne järkevä?
-onko jaottelu järkevä?
 useita hyödyllisiä funktioita puuttuu, esimerkiksi funktioita ulkoisen verkon lukemiseen
-(doublen kertominen uintillä palauttaa uintin hox1)
-
-steps to make this happen:
-input the mesh into dec by modifying code from LoadMsh
-avoid multiplying matrixes which dont have matching dimensions, this is the only warning you get.
-choose the right parameters for integrateHodge, just test which one works.
 */
 
 
@@ -31,6 +24,7 @@ choose the right parameters for integrateHodge, just test which one works.
 #include "../../GFD/Discrete/Dec.hpp"	//for dec related calculations
 #include <iostream>
 #include <fstream>
+#include <chrono>
 
 using namespace std;
 using namespace gfd;
@@ -96,25 +90,27 @@ void loadMesh(PartMesh &mesh, string file){
 													(pos.size() > 2 ? pos[2] : 0.0), 0.0));
 	}
     if(input.getRow().substr(0, 9).compare("$EndNodes") == 0) cout << "Nodes read succesfully." << endl;
-	if(input.getRow().substr(0, 10).compare("$Triangles") == 0){
+	if(input.getRow().substr(0, 6).compare("$Faces") == 0){
         cout << "reading faces and edges." << endl;
     }
-    const uint numTria=getUint(input.getRow(),0);
-    for(uint i=0; i<numTria; i++) {
-		const Buffer<uint> tria = getUints(input.getRow());
-		Buffer<uint> edge(3);
-		edge[0] = mesh.addEdge(tria[0]-1, tria[1]-1);
-		edge[1] = mesh.addEdge(tria[1]-1, tria[2]-1);
-		edge[2] = mesh.addEdge(tria[2]-1, tria[0]-1);
+    const uint numFace=getUint(input.getRow(),0);
+    for(uint i=0; i<numFace; i++) {
+		const Buffer<uint> face = getUints(input.getRow());
+		Buffer<uint> edge(face.size());
+		for(uint i=0; i<face.size(); i++){
+			edge[i] = mesh.addEdge(face[i%face.size()]-1, face[(i+1)%face.size()]-1);
+		}
 		mesh.addFace(edge);
 	}
-    cout << numTria << endl;
+    cout << numFace << endl;
     //read faces and edges
-    if(input.getRow().substr(0, 13).compare("$EndTriangles") == 0) cout << "Faces and edges read succesfully." << endl;
+    if(input.getRow().substr(0, 9).compare("$EndFaces") == 0) cout << "Faces and edges read succesfully." << endl;
 }
 
 int main(int argc, const char* argv[]) {
 	initMPI();
+
+	auto starttime = chrono::system_clock::now();
 
     PartMesh mesh(0, 1, 2);
     if(argc==1){
@@ -128,10 +124,10 @@ int main(int argc, const char* argv[]) {
     }
     Dec dec(mesh, 0, mesh.getDimension());
 
-    Derivative d0;
+    Derivative d0; 
     d0=dec.integrateDerivative(fg_prim0, d0);
     Diagonal<double> h1;
-    h1=dec.integrateHodge(HodgeUnit2, 0, fg_prim1, h1);//mistä tulee HodgeUnit2, löydetty kokeilemalla...
+    h1=dec.integrateHodge(HodgeUnit2, 0, fg_prim1, h1);//mistä tulee HodgeUnit2??
     Diagonal<double> h0i;
     h0i=dec.integrateHodge(HodgeUnit1, 0, fg_dual0, h0i);
     Column<double> h(0.0);
@@ -144,20 +140,26 @@ int main(int argc, const char* argv[]) {
 	gamma.setScale(dt, h1*d0);
 	double sol44[time_steps];
 	double sol70[time_steps];
+
+	cout << "Mesh and derivates generated in " << chrono::duration<double>(chrono::system_clock::now() - starttime).count() << " seconds" << endl;
+	starttime = chrono::system_clock::now();
+
     for(double i=0; i<time_steps; i++) {
-        //cout << e.getValue(154) << endl;
 		e+=delta*h;
-        e.m_val[158]=sin(PIx2*i/300.0);
+        e.m_val[1700]=sin(PIx2*i/300.0);//60 158
         h-=gamma*e;
-		sol44[int(i+0.1)]=e.m_val[44];
-		sol70[int(i+0.1)]=e.m_val[70];
+		sol44[int(i+0.1)]=e.m_val[7505];//36 44
+		sol70[int(i+0.1)]=e.m_val[4505];//24 70
     }
+	
+	cout << "Timeintegration performed in " << chrono::duration<double>(chrono::system_clock::now() - starttime).count() << " seconds" << endl;
+	starttime = chrono::system_clock::now();
+
 	ofstream myfile;
 	myfile.open ("solutions.txt");
-	for(int i=0;i<time_steps;i++){
+	for(uint i=0;i<time_steps;i++){
 		myfile << sol44[i] << " " << sol70[i] << endl;
 	}
 	myfile.close();
-
     finalizeMPI();
 }

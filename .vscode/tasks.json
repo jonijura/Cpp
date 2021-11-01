@@ -30,7 +30,7 @@
 		},
 		{
 			"type": "cppbuild",
-			"label": "Compile MPI",
+			"label": "CompileMPI",
 			"command": "C:\\Program Files (x86)\\mingw-w64\\i686-8.1.0-posix-dwarf-rt_v6-rev0\\mingw32\\bin\\g++.exe",
 			"args": [
 				"-I${MSMPI_INC}",
@@ -149,7 +149,8 @@
 				"kind": "build",
 				"isDefault": true
 			},
-			"detail": "compiler: \"C:\\Program Files (x86)\\mingw-w64\\i686-8.1.0-posix-dwarf-rt_v6-rev0\\mingw32\\bin\\g++.exe\""
-		},
+			"detail": "compiler: \"C:\\Program Files (x86)\\mingw-w64\\i686-8.1.0-posix-dwarf-rt_v6-rev0\\mingw32\\bin\\g++.exe\"",
+			"dependsOn": "CompileMPI"
+		}
 	]
 }
