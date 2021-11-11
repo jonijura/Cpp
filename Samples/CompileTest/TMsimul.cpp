@@ -153,6 +153,7 @@ int main(int argc, const char* argv[]) {
     h1=dec.integrateHodge(HodgeUnit2, 0, fg_prim1, h1);//mistä tulee HodgeUnit2??
     Diagonal<double> h0i;
     h0i=dec.integrateHodge(HodgeUnit1, 0, fg_dual0, h0i);
+
     Column<double> h(0.0);
 	dec.integrateZeroForm(fg_dual1, h);
 	Column<double> e(0.0);
@@ -168,7 +169,7 @@ int main(int argc, const char* argv[]) {
 	starttime = chrono::system_clock::now();
 	uint kp = mesh.getNodeSize()/2;
     for(double i=0; i<time_steps; i++) {
-		e+=delta*h;//-P1*e
+		e+=delta*h-P1*e;//
         e.m_val[kp]=sin(PIx2*i/650.0);//60 158
         h-=gamma*e;
 		solt[int(i+0.1)]=e.m_val[kp-5];//36 44

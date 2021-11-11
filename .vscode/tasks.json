@@ -34,6 +34,7 @@
 			"command": "C:\\Program Files (x86)\\mingw-w64\\i686-8.1.0-posix-dwarf-rt_v6-rev0\\mingw32\\bin\\g++.exe",
 			"args": [
 				"-I${MSMPI_INC}",
+				"-I${MSMPI_INC}\\x86",
 				"-g",
 				"-Wall",
 				"-Wextra",
@@ -89,6 +90,7 @@
 			"command": "C:\\Program Files (x86)\\mingw-w64\\i686-8.1.0-posix-dwarf-rt_v6-rev0\\mingw32\\bin\\g++.exe",
 			"args": [
 				"-I${MSMPI_INC}",
+				"-I${MSMPI_INC}\\x86",
 				"-g",
 				"-Wall",
 				"-Wextra",
@@ -135,7 +137,9 @@
 				"..\\..\\build\\BlockIntegrator.o",
 				"..\\..\\build\\BlockInterpolator.o",
 				"..\\..\\build\\BlockMesh.o",
+				"C:\\MyTemp\\Lib\\x86\\msmpifec.lib",
 				"C:\\MyTemp\\Lib\\x86\\msmpi.lib",
+				"C:\\MyTemp\\Lib\\x86\\msmpifmc.lib",
 				"-o",
 				"${fileDirname}\\build\\${fileBasenameNoExtension}.exe"
 			],

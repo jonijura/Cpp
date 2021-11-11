@@ -10,7 +10,7 @@
             "request": "launch",
             "preLaunchTask": "Link",
             "program": "${fileDirname}\\build\\${fileBasenameNoExtension}.exe",
-            "args": ["mesh2.txt"],
+            "args": ["${fileDirname}\\mesh2.txt"],
             "stopAtEntry": true,
             "cwd": "${fileDirname}",
             "environment": [],

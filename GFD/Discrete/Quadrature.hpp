@@ -23,8 +23,8 @@ inline ThreeVector3 FormThreeVector3(const Buffer<double> &q) { return ThreeVect
 inline ThreeVector4 FormThreeVector4(const Buffer<double> &q) { return ThreeVector4(q[0], q[1], q[2], q[3]); }
 inline FourVector4 FormFourVector4(const Buffer<double> &q) { return FourVector4(q[0]); }
 inline VectorN FormVectorN(const Buffer<double> &q) { return VectorN(q); }
-inline double HodgeUnit1(const Buffer<double> &q) { return q[0]; }
-inline double HodgeUnit2(const Buffer<double> &q) { return q[0] + q[2]; }
+inline double HodgeUnit1(const Buffer<double> &q) {return q[0]; }
+inline double HodgeUnit2(const Buffer<double> &q) {return q[0] + q[2]; }
 inline double HodgeUnit3(const Buffer<double> &q) { return q[0] + q[2] + q[5]; }
 inline double HodgeUnit4(const Buffer<double> &q) { return q[0] + q[2] + q[5] + q[9]; }
 inline double HodgeUnit6(const Buffer<double> &q) { return q[0] + q[2] + q[5] + q[9] + q[14]; }
