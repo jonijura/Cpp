@@ -29,9 +29,15 @@ useita hyödyllisiä funktioita puuttuu, esimerkiksi funktioita ulkoisen verkon 
 using namespace std;
 using namespace gfd;
 
-const uint space_steps = 5; // number of space elements per unit length
-const uint time_steps = 4000; // number of time steps
-const double dt = 0.003; //time step size
+const uint time_steps = 6000; // number of time steps
+const double dt = 0.01; //time step size
+const double dx = 0.1; //distance on the boundary
+const uint lp = 257;//mesh.getNodeSize()/2;
+const uint tp = 16769;
+const double fm = 0.4;
+const double r = 0.2;//reiän säde
+const double epsilon = 8.9;//reiän relatiivinen permittiivisyys
+const double lev = 16/PI;//taajuusalueen leveys (fm+-2/16*fm?)
 
 double getDouble(const std::string &str, const double def) {
 	char *rest;
@@ -133,17 +139,13 @@ int main(int argc, const char* argv[]) {
     PartMesh mesh(0, 1, 2);
 	Buffer<double> boundaryNodes;
     if(argc==1){
-        BuilderMesh bmesh(2);
-        const double dx = 1.0 / double(space_steps);
-        bmesh.createTriangleGrid(Vector2(0,0), Vector2(1,1), dx);
-        mesh.swap(bmesh);
+        cout << "give input mesh" << endl;
+		return 0;
     }
     else{
         loadMesh(mesh,argv[1],boundaryNodes);
     }
-	Text stat;
-	mesh.writeStatistics(stat);
-	stat.save("stats.txt");
+
     Dec dec(mesh, 0, mesh.getDimension());
 
 	Diagonal<double> P1(boundaryNodes,0.0);
@@ -151,30 +153,50 @@ int main(int argc, const char* argv[]) {
     d0=dec.integrateDerivative(fg_prim0, d0);
     Diagonal<double> h1;
     h1=dec.integrateHodge(HodgeUnit2, 0, fg_prim1, h1);//mistä tulee HodgeUnit2??
+	//line();
+	//h1.printData();
+	//line();
+	//h1.printShape();
     Diagonal<double> h0i;
     h0i=dec.integrateHodge(HodgeUnit1, 0, fg_dual0, h0i);
+	//line();
+	//h0i.printData();
+	//line();
+	//h0i.printShape();
+	//line();
+
+	//material parameters
+	Buffer<double> holes(mesh.getNodeSize());
+	double xn,yn;
+	for(double i=0;i<mesh.getNodeSize();i++){
+		xn=fmod(mesh.getNodePosition2(i).x,1.0)-0.5;
+		yn=fmod(mesh.getNodePosition2(i).y,1.0)-0.5;
+		if((xn*xn+yn*yn)<(r*r)&(floor(mesh.getNodePosition2(i).y)!=3.0)) holes[i]=1.0/epsilon;
+		else holes[i]=1;
+	}
+	Diagonal<double> P2(holes,0.0);
 
     Column<double> h(0.0);
 	dec.integrateZeroForm(fg_dual1, h);
 	Column<double> e(0.0);
 	dec.integrateZeroForm(fg_prim0, e);
     Sparse<double> delta;
-	delta.setScale(dt, h0i*transpose(d0));
+	delta.setScale(dt, P2*h0i*transpose(d0));
 	Sparse<double> gamma;
 	gamma.setScale(dt, h1*d0);
-	P1.setScale(0.1*dt,h0i*P1);
+	P1.setScale(dx*dt,h0i*P1);
 	double solt[time_steps];
 
 	std::cout << "Mesh and derivates generated in " << chrono::duration<double>(chrono::system_clock::now() - starttime).count() << " seconds" << endl;
 	starttime = chrono::system_clock::now();
-	uint kp = mesh.getNodeSize()/2;
+
     for(double i=0; i<time_steps; i++) {
 		e+=delta*h-P1*e;//
-        e.m_val[kp]=sin(PIx2*i/650.0);//60 158
+        e.m_val[lp]+=exp(-(i*dt-3*lev)*(i*dt-3*lev)/(lev*lev))*sin(PIx2*fm*(i*dt-3*lev));
         h-=gamma*e;
-		solt[int(i+0.1)]=e.m_val[kp-5];//36 44
+		solt[int(i+0.1)]=e.m_val[tp];
     }
-	
+
 	std::cout << "Timeintegration performed in " << chrono::duration<double>(chrono::system_clock::now() - starttime).count() << " seconds" << endl;
 	starttime = chrono::system_clock::now();
 
@@ -183,6 +205,7 @@ int main(int argc, const char* argv[]) {
 	for(uint i=0;i<time_steps;i++){
 		myfile << solt[i] << endl;
 	}
+	
 	myfile.close();
     gfd::finalizeMPI();
 }

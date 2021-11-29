@@ -51,7 +51,7 @@ protected:
 		for(i=0; i<m_row.size(); i++) cout << " " << m_row[i];
 		cout << endl;
 		cout << "m_val =";
-		for(i=0; i<m_val.size(); i++) cout << " " << m_val[i];
+		for(i=0; i<m_val.size(); i++) cout << " " << (double)m_val[i];
 		cout << endl;
 	}
 	void getFromRank(const uint from, const uint to, Discrete &recv) const {

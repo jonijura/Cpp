@@ -35,6 +35,7 @@
 			"args": [
 				"-I${MSMPI_INC}",
 				"-I${MSMPI_INC}\\x86",
+				"-IC:\\MyTemp\\eigen-3.4.0\\eigen-3.4.0",
 				"-g",
 				"-Wall",
 				"-Wextra",
