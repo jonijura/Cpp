@@ -10,7 +10,7 @@
             "request": "launch",
             "preLaunchTask": "Link",
             "program": "${fileDirname}\\build\\${fileBasenameNoExtension}.exe",
-            "args": ["${fileDirname}\\build\\out.txt"],
+            "args": ["${fileDirname}\\optimesh.txt"],
             "stopAtEntry": true,
             "cwd": "${fileDirname}",
             "environment": [],

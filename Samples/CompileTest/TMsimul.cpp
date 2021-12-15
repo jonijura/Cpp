@@ -16,12 +16,13 @@ useita hyödyllisiä funktioita puuttuu, esimerkiksi funktioita ulkoisen verkon 
 
 
 
-
+#include "../../GFD/Output/MeshDrawer.hpp"	//for drawing a mesh
 #include "../../GFD/Mesh/BuilderMesh.hpp"	//for building and modifying a mesh
 #include "../../GFD/Mesh/PartMesh.hpp"	//for working with parts of a mesh?
 #include "../../GFD/Types/Types.hpp"	//constants, shorter names for types, type couple
 #include "../../GFD/Types/MpiEasy.hpp"	//for parallel computing
 #include "../../GFD/Discrete/Dec.hpp"	//for dec related calculations
+#include <iomanip>
 #include <iostream>
 #include <fstream>
 #include <chrono>
@@ -29,15 +30,16 @@ useita hyödyllisiä funktioita puuttuu, esimerkiksi funktioita ulkoisen verkon 
 using namespace std;
 using namespace gfd;
 
-const uint space_steps = 32; // number of space elements per unit length
-const uint time_steps = 160; // number of time elements per unit time
+const uint space_steps = 21; // number of space elements per unit length
+const uint time_steps = 4*space_steps; // number of time elements per unit time
 const uint T = 200; //simulation time
 const uint grid_type = 1; // 2d grid type: 0 = squares, 1 = triangles, 2 = snubsquare
 const double fm = 0.5;
 const double lev = 3.0/(PI*fm);
-const double epsilon = 8.9;
-const double r = 0.2;
-const double korjaus = -0.00018;
+const double epsilon = 5.9;
+const double r = 0.3;
+const double korjaus = 0;
+const bool saveresult = true;
 
 double getDouble(const std::string &str, const double def) {
 	char *rest;
@@ -99,21 +101,24 @@ void loadMesh(PartMesh &mesh, string file, Buffer<double> &boundaryNodes){
         std::cout << "reading faces and edges." << endl;
     }
     const uint numFace=getUint(input.getRow(),0);
-	Buffer<uint> flags(numFace*4);//record edges that are linked to only one face -> boundary edges
-	flags.fill(0);
+	std::cout << numFace << endl;
+	//Buffer<uint> flags(numFace*4);//record edges that are linked to only one face -> boundary edges
+	//flags.fill(0);
     for(uint i=0; i<numFace; i++) {
 		const Buffer<uint> face = getUints(input.getRow());
 		Buffer<uint> edge(face.size());
 		for(uint i=0; i<face.size(); i++){
 			edge[i] = mesh.addEdge(face[i%face.size()]-1, face[(i+1)%face.size()]-1);
-			flags[edge[i]]++;
+			//flags[edge[i]]++;
 		}
 		mesh.addFace(edge);
 	}
+	/*
 	flags.resize(mesh.getEdgeSize());
 	for(uint i=0; i<flags.size();i++){
 		flags[i]=flags[i]%2;//flags[i]=1 iff edge number i is on the boundary
 	}
+	
 	//for(uint i=0;i<flags.size();i++) cout << flags[i] << " ";
 	Buffer<double> flagsV(mesh.getNodeSize());
 	flagsV.fill(0.0);
@@ -127,7 +132,7 @@ void loadMesh(PartMesh &mesh, string file, Buffer<double> &boundaryNodes){
 	}
 	//for(uint i=0;i<flagsV.size();i++) cout << flagsV[i] << " ";
 	boundaryNodes=flagsV;
-    std::cout << numFace << endl;
+	*/
     if(input.getRow().substr(0, 9).compare("$EndFaces") == 0) std::cout << "Faces and edges read succesfully." << endl;
 }
 
@@ -178,11 +183,11 @@ int main(int argc, const char* argv[]) {
             s_m[i]=1.0;
             if(yn<eps | yn > 1-eps) s_m[i]=.5;
         }
-        if(abs(xn-0.5)+abs(yn-0.5)<0.02){
+        if(abs(xn-1)+abs(yn-0.5)<0.8/space_steps){
             tp=i;
             cout << "Tarkastelupiste 1: " << xn << ", " << yn << endl;
         }
-        if(abs(xn-9.5)+abs(yn-0.5)<0.02){
+        if(abs(xn-9)+abs(yn-0.5)<0.8/space_steps){
             tpr=i;
             cout << "Tarkastelupiste 2: " << xn << ", " << yn << endl;
         } 
@@ -209,8 +214,7 @@ int main(int argc, const char* argv[]) {
 	gamma.setScale(dt, h1*d0);
     Diagonal<double> P1(s_m,0.0);
     P1.setScale(dx*dt,h0i*P1);
-	double solt[T*time_steps];
-    double solt2[T*time_steps];
+	double solt[4*T*time_steps];
 
     for(double i=0; i<T*time_steps; i++) {
 		e+=delta*h-P1*e;
@@ -221,18 +225,22 @@ int main(int argc, const char* argv[]) {
         }
         h-=gamma*e;
         h2-=gamma*e2;
-		solt[int(i+0.1)]=e2.m_val[tp];
-        solt2[int(i+0.1)]=e.m_val[tpr];
+		solt[int(4*i+0.1)]=e.m_val[tp];
+        solt[int(4*i+1.1)]=e.m_val[tpr];
+		solt[int(4*i+2.1)]=e2.m_val[tp];
+        solt[int(4*i+3.1)]=e2.m_val[tpr];
 		if(int(i)%time_steps==0)cout << '*';
     }
 	cout << endl;
-
 	ofstream myfile;
+	myfile << setprecision(14);
 	myfile.open ("solutions.txt");
-	for(uint i=0;i<T*time_steps;i++){
-		myfile << solt2[i] << " " << solt[i] << endl;
+	uint n_n=mesh.getNodeSize();
+	for(uint i=0;i<n_n;i++){
+		myfile << e.m_val[i] << endl;
 	}
-
+	myfile.close();
+	
     double dualsum=0;
     double holearea=0;
     for(uint i=0;i<mesh.getNodeSize();i++){
@@ -242,6 +250,47 @@ int main(int argc, const char* argv[]) {
     cout << "sum of dual areas: " << dualsum << " Should be: " << 10 << endl;
 	cout << "area of holes: " << holearea/6.0 << " Should be: " << PI*r*r << " difference: " << abs(PI*r*r-holearea/6.0) << endl;
 
-	myfile.close();
-    gfd::finalizeMPI();
+	if(saveresult){
+		srand((unsigned)time(0)*1942302);
+		int name = rand()*1000000+rand();
+		string fileloc = "C:\\MyTemp\\Tutkimusavustaja2021\\Simulointitulokset\\" + to_string(name) + ".txt";
+		myfile.open (fileloc);
+		myfile << setprecision(14);
+		for(uint i=0;i<T*time_steps;i++){
+			myfile << solt[4*i] << "\t" << solt[4*i+1] << "\t" << solt[4*i+2] << "\t" << solt[4*i+3] << endl;
+		}
+		myfile.close();
+		
+		uint e_n = mesh.getEdgeSize();
+		double min = dx;
+		for(uint i=0; i<e_n; i++)
+		{
+			const Vector4 v = mesh.getEdgeVector(i);
+			double len = v.len();
+			if(len < min) min = len;
+		}
+
+		fileloc = "C:\\MyTemp\\Tutkimusavustaja2021\\Simulointitulokset\\simulation_details.txt";
+		myfile.open(fileloc, std::ios_base::app);
+		myfile << setprecision(14);
+		myfile << r << "\t" << 
+			sqrt(holearea/(PI*6)) << "\t" << 
+			epsilon << "\t" <<
+			min << "\t" << 
+			dx << "\t" <<
+			dt << "\t" <<
+			0 << "\t" <<
+			T*time_steps << "\t" <<
+			20011111100 << "\t" <<
+			fm << "\t" <<
+			1/(PI*lev) << "\t" <<
+			mesh.getNodePosition2(tp).y << "\t" <<
+			mesh.getNodePosition2(tp).x << "\t" <<
+			mesh.getNodePosition2(tpr).y << "\t" <<
+			mesh.getNodePosition2(tpr).x << "\t" <<
+			name << endl;
+		myfile.close();
+	}
+
+	gfd::finalizeMPI();
 }
