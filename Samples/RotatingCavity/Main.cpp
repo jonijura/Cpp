@@ -20,7 +20,7 @@
 using namespace std;
 using namespace gfd;
 
-TwoVector3 getField(const Mesh &mesh, const Buffer<double> &val, const uint node) {
+TwoVector3 getField(const Mesh &mesh, const Buffer<double> &val, const uint node) {//interpolating?
 	const Buffer<uint> par = mesh.getNodeFaces(node);
 	SymTwoMatrix3 A(0,0,0,0,0,0);
 	TwoVector3 b(0,0,0);
@@ -66,7 +66,7 @@ uint createSpaceTimeMesh(const double h, const double dtime, const uint steps, c
 	const Vector2 e0 = Vector2(0.0, SQRT3_4) / (h * 0.75);
 	const Vector2 e1 = Vector2(0.75, 0.5 * SQRT3_4) / (h * 0.75);
 	const Vector2 e2 = Vector2(0.75, -0.5 * SQRT3_4) / (h * 0.75);
-	for(i=basemesh.getNodeSize(); i-->0; ) {
+	for(i=basemesh.getNodeSize(); i-->0; ) {//bumerang shape
 		const Vector2 p = basemesh.getNodePosition2(i);
 		if(e0.dot(p) > N || e0.dot(p) < -N) basemesh.removeNode(i);
 		else if(e1.dot(p) > N || e1.dot(p) < -0.3 / h - 0.001) basemesh.removeNode(i);
@@ -85,10 +85,10 @@ uint createSpaceTimeMesh(const double h, const double dtime, const uint steps, c
 		for(j=0; j<nodes; j++) {
 			const Vector2 x = basemesh.getNodePosition2(j);
 			const double z = dtime * (async ? i - 1.0 + double(basemesh.getNodeFlag(j)) / 3.0 : i);
-			const Vector2 b(-0.0 * z,0);
+			const Vector2 b(-0.0 * z,0);//:D?
 			const double cosi = cos(slope * z);
 			const double sini = sin(slope * z);
-			const Matrix2 a(cosi,sini, -sini,cosi);
+			const Matrix2 a(cosi,sini, -sini,cosi);//rotating the bumerang
 			mesh.addNode(Vector4(a * x + b, z, 0.0));
 		}
 	}
@@ -141,7 +141,7 @@ void drawMeshBar(const double h, const double dtime, const uint steps, const dou
 		const double height = dtime * i;
 		Buffer<Vector3> col(mesh.getFaceSize());
 		for(uint j=0; j<col.size(); j++) {
-			if(mesh.getFaceAverage(j).z < height) col[j] = Vector3(1,0,0);
+			if(mesh.getFaceAverage(j).z < height) col[j] = Vector3(1,0,0);//color mesh upto height with red
 			else col[j] = Vector3(1,1,1);
 		}
 
@@ -162,7 +162,7 @@ void drawMeshBar(const double h, const double dtime, const uint steps, const dou
 
 void drawWave(const double h, const double dtime, const uint microsteps, const uint steps, const double slope, const uint picwidth = 400) {
 	BuilderMesh mesh(3);
-	const uint fblock = createSpaceTimeMesh(h, dtime, microsteps + 1, slope, true, mesh);
+	const uint fblock = createSpaceTimeMesh(h, dtime, microsteps + 1, slope, true, mesh);//a mesh for each timestep with microsteps in time
 	const uint nblock = microsteps * (mesh.getNodeSize() / (microsteps + 2));
 
 	// initialize values and operator
@@ -240,7 +240,7 @@ void drawWave(const double h, const double dtime, const uint microsteps, const u
 					i + 5 < picture.getWidth() && picture.getColor(i+5,j).t == 0.0 &&
 					j >= 5 && picture.getColor(i,j-5).t == 0.0 &&
 					j + 5 < picture.getHeight() && picture.getColor(i,j+5).t == 0.0) continue;
-
+				//look for closest node to pixel
 				const Vector4 p(2.1 * i / double(picture.getWidth()) - 1.05, 2.1 * j / double(picture.getHeight()) - 1.05, 0,0);
 				uint newnode = mesh.findNode(p, 0.5 * h * h, node, false);
 				if(newnode == NONE) {
