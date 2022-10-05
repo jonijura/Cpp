@@ -27,7 +27,7 @@ $(BUILD)/%.o: $(LIB)/%.cpp
 .PHONY: clean
 clean:
 	$(RMDIR_R) $(BUILD)
-run: $(BUILD)/$(TARGET)
+run: dirs $(BUILD)/$(TARGET)
 	cd $(BUILD) && $(TARGET) ../test.msh test.jrm pic.svg stat.txt && cd ../
 
 dirs:
