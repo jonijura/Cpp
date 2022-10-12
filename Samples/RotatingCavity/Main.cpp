@@ -169,7 +169,7 @@ void drawWave(const double h, const double dtime, const uint microsteps, const u
 	uint i, j, k;
 	const Vector2 p0(-0.7 * sin(PI/6.0), 0.7 * cos(PI/6.0));
 	Buffer<double> val(mesh.getFaceSize(), 0.0);
-	Buffer< Buffer< pair<uint, double> > > buf(val.size());
+	Buffer< Buffer< pair<uint, double> > > buf(val.size());//exterior derivative? last line getFaceHodge
 	for(i=0; i<val.size(); i++) {
 		if(i < fblock) { // copy value from the end
 			const TwoVector3 tv = mesh.getFaceVector3(i);
@@ -177,22 +177,22 @@ void drawWave(const double h, const double dtime, const uint microsteps, const u
 			const double plen = 50.0 * p.len();
 			const Buffer<uint> n = mesh.getFaceNodes(i);
 			const uint ii = mesh.findFace(findEdges(n[0] + nblock, n[1] + nblock, n[2] + nblock, mesh));
-			if(plen < PI) val[ii] = 3.0 * (1.0 + cos(plen)) * tv.xy;
+			if(plen < PI) val[ii] = 3.0 * (1.0 + cos(plen)) * tv.xy;//initial value?
 			buf[i].push_back(pair<uint,double>(ii, 1.0));
 		}
 		else if(mesh.getFaceFlag(i) == 1) { // update by a body
 			const Buffer<uint> &ele = mesh.getFaceBodies(i);
 			uint body = ele[0];
-			for(j=1; j<ele.size(); j++) {
+			for(j=1; j<ele.size(); j++) {//largest bodyindex of node i??
 				if(ele[j] < body) body = ele[j];
 			}
 			//const uint body = mesh.getFaceBodies(i)[0];
-			const double sign = -mesh.getBodyIncidence(body, i);
+			const double sign = -mesh.getBodyIncidence(body, i);//bodys have -1 default from minkowski?
 			const Buffer<uint> &f = mesh.getBodyFaces(body);
 			buf[i].resize(f.size() - 1);
 			for(j=0, k=0; j<f.size(); j++) {
 				if(f[j] == i) continue;
-				buf[i][k++] = pair<uint,double>(f[j], sign * mesh.getBodyIncidence(body, f[j]));
+				buf[i][k++] = pair<uint,double>(f[j], sign * mesh.getBodyIncidence(body, f[j]));//orientation?
 			}
 		}
 		else { // update by an edge
@@ -224,7 +224,7 @@ void drawWave(const double h, const double dtime, const uint microsteps, const u
 	for(uint iter=0; iter<=steps; iter++) {
 		cout << "Iteration " << iter << "..." << endl;
 
-		// update values
+		// update values (this is where the magic happens?)
 		for(i=0; i<buf.size(); i++) {
 			val[i] = 0.0;
 			for(j=0; j<buf[i].size(); j++) val[i] += buf[i][j].second * val[buf[i][j].first];

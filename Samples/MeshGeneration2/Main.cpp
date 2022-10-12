@@ -75,11 +75,11 @@ int main() {
     // inside.insertMesh(inside2);
     // mesh.insertMesh(inside);
     saveVerticesAndFaces(mesh);
-    string s = "build\\kuva2.bmp";
+    string s = "build\\kuva1.bmp";
     savePicture(mesh, s);
-    // mesh.fillBoundaryFlags(5);
-    // mesh.improveNodeByHodge(0);
-    // mesh.optimizeNodes(UintSet(0));
-    // string s2 = "build\\kuva3.bmp";
-    // savePicture(mesh, s2);
+    mesh.fillBoundaryFlags(5);
+    mesh.improveNodeByHodge(0);
+    mesh.optimizeNodes(UintSet(0));
+    string s2 = "build\\kuva3.bmp";
+    savePicture(mesh, s2);
 }
