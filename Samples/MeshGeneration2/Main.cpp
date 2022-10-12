@@ -81,5 +81,5 @@ int main() {
     mesh.improveNodeByHodge(0);
     mesh.optimizeNodes(UintSet(0));
     string s2 = "build\\kuva3.bmp";
-    savePicture(mesh, s2);
+    savePicture(mesh, s2); 
 }

@@ -97,7 +97,7 @@ uint createSpaceTimeMesh(const double h, const double dtime, const uint steps, c
 		mesh.addEdge(n[0], n[1]);
 	}
 	for(j=0; j<basemesh.getFaceSize(); j++) mesh.addFace(basemesh.getFaceEdges(j));
-	for(j=0; j<basemesh.getBodySize(); j++) mesh.addBody(basemesh.getBodyFaces(j));
+	for(j=0; j<basemesh.getBodySize(); j++) mesh.addBody(basemesh.getBodyFaces(j));//no bodies in 2d mesh???
 	Buffer<uint> nn(nodes);
 	for(k=0; k<nodes; k++) nn[k] = k;
 	for(i=1; i<=steps; i++) {
@@ -158,6 +158,28 @@ void drawMeshBar(const double h, const double dtime, const uint steps, const dou
 		path << "mesh" << i << ".bmp";
 		pic.save(path.str(), false);
 	}
+}
+
+void saveStatistics(int picwidth, Mesh& mesh){
+	// draw and save statistics
+	MeshDrawer drawer;
+	const Vector3 vo(0,0,5);
+	const Vector3 vp(0,20,10);
+	const Vector3 vx = TwoVector3(Vector3(0,0,1), vp).dual().unit() / 3.0;
+	const Vector3 vy = TwoVector3(vp, vx).dual().unit() / 3.0;
+	drawer.initPosition(Vector4(vp + vo,0), Vector4(vo,0), Vector4(vx,0), Vector4(vy,0));
+	Picture pic(picwidth, picwidth);
+	drawer.initPicture(&pic);
+	drawer.initSvg(picwidth, picwidth);
+	drawer.drawBoundaryFaces(mesh, Vector3(1,1,1));
+	pic.save("mesh.bmp", false);
+	drawer.saveSvg("mesh.svg");
+
+	// save mesh statistics
+	Text text;
+	mesh.writeStatistics(text);
+	text.save("stat.txt");
+	cout << "Saved statistics" << endl;
 }
 
 void drawWave(const double h, const double dtime, const uint microsteps, const uint steps, const double slope, const uint picwidth = 400) {
@@ -224,10 +246,11 @@ void drawWave(const double h, const double dtime, const uint microsteps, const u
 	for(uint iter=0; iter<=steps; iter++) {
 		cout << "Iteration " << iter << "..." << endl;
 
-		// update values (this is where the magic happens?)
+		// update values (this is where the magic happens? asyncronous timestepping)
 		for(i=0; i<buf.size(); i++) {
 			val[i] = 0.0;
-			for(j=0; j<buf[i].size(); j++) val[i] += buf[i][j].second * val[buf[i][j].first];
+			for(j=0; j<buf[i].size(); j++) 
+				val[i] += buf[i][j].second * val[buf[i][j].first];
 		}
 
 		// draw picture
@@ -264,7 +287,7 @@ void drawWave(const double h, const double dtime, const uint microsteps, const u
 			}
 		}
 		Text path;
-		path << "field" << iter << ".bmp";
+		path << "fieldNoAsync" << iter << ".bmp";
 		picture.save(path.str(), true);
 
 		// update mesh node positions for the next iteration
@@ -273,32 +296,15 @@ void drawWave(const double h, const double dtime, const uint microsteps, const u
 		} 
 	}
 
-	// draw and save statistics
-	MeshDrawer drawer;
-	const Vector3 vo(0,0,5);
-	const Vector3 vp(0,20,10);
-	const Vector3 vx = TwoVector3(Vector3(0,0,1), vp).dual().unit() / 3.0;
-	const Vector3 vy = TwoVector3(vp, vx).dual().unit() / 3.0;
-	drawer.initPosition(Vector4(vp + vo,0), Vector4(vo,0), Vector4(vx,0), Vector4(vy,0));
-	Picture pic(picwidth, picwidth);
-	drawer.initPicture(&pic);
-	drawer.initSvg(picwidth, picwidth);
-	drawer.drawBoundaryFaces(mesh, Vector3(1,1,1));
-	pic.save("mesh.bmp", false);
-	drawer.saveSvg("mesh.svg");
-
-	// save mesh statistics
-	Text text;
-	mesh.writeStatistics(text);
-	text.save("stat.txt");
-	cout << "Saved statistics" << endl;
+	// saveStatistics(picwidth, mesh);
 }
+
 
 int main() {
 	auto starttime = chrono::system_clock::now();
 
 	drawMeshBar(1.0 / 4.0, 1.0 / 10.0, 80, PI / 12.0, 400);
-	drawWave(1.0 / 40.0, 1.0 / 100.0, 10, 80, PI / 12.0, 400);
+	drawWave(1.0 / 40.0, 1.0 / 100.0, 10, 10, PI / 12.0, 400);
 
 	cout << "Elapsed time: " << chrono::duration<double>(chrono::system_clock::now() - starttime).count() << " seconds" << endl;
 	return 0;

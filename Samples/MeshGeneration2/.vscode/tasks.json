@@ -5,6 +5,7 @@
             "label": "make run",
             "command": "mk",
             "args": [
+                "SOURCE=${fileBasename}"
             ],
             "options": {
                 "cwd": "${fileDirname}"

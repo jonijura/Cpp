@@ -2,6 +2,7 @@
 TARGET = run.exe
 BUILD = build
 LIB := ../../GFD
+SOURCE = Main.cpp
 
 # c++ compiler and compiler flags
 CXX = g++
@@ -13,7 +14,7 @@ MKDIR_P ?= mkdir
 RMDIR_R ?= rmdir /q/s
 
 # source files for the program
-SOURCES := Main.cpp $(wildcard $(LIB)/Types/*.cpp) $(wildcard $(LIB)/Mesh/*.cpp) $(wildcard $(LIB)/Output/*.cpp) $(wildcard $(LIB)/BlockDec/*.cpp) $(wildcard $(LIB)/Discrete/*.cpp)
+SOURCES := $(SOURCE) $(wildcard $(LIB)/Types/*.cpp) $(wildcard $(LIB)/Mesh/*.cpp) $(wildcard $(LIB)/Output/*.cpp) $(wildcard $(LIB)/BlockDec/*.cpp) $(wildcard $(LIB)/Discrete/*.cpp)
 OBJECTS := $(addprefix $(BUILD)/,$(patsubst %.cpp,%.o,$(patsubst $(LIB)/%,%,$(SOURCES))))
 
 # general part of makefile
@@ -29,8 +30,6 @@ clean:
 	$(RMDIR_R) $(BUILD)
 run: $(BUILD) $(BUILD)/$(TARGET)
 	cd $(BUILD) && $(TARGET) && cd ../
-mpirun: $(BUILD)/$(TARGET)
-	cd $(BUILD); mpirun -np $(N) ./$(TARGET); cd ../
 
 $(BUILD):
 	-md build\Types

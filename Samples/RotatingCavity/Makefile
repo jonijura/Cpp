@@ -17,7 +17,7 @@ SOURCES := Main.cpp $(filter-out $(LIB)/Types/MpiEasy.cpp, $(wildcard $(LIB)/Typ
 OBJECTS := $(addprefix $(BUILD)/,$(patsubst %.cpp,%.o,$(patsubst $(LIB)/%,%,$(SOURCES))))
 
 # general part of makefile
-all: dirs $(BUILD)/$(TARGET)
+all: $(BUILD) $(BUILD)/$(TARGET)
 $(BUILD)/$(TARGET): $(OBJECTS)
 	$(CXX) $(OBJECTS) -o $@
 $(BUILD)/%.o: %.cpp
@@ -30,7 +30,7 @@ clean:
 run: $(BUILD)/$(TARGET)
 	cd $(BUILD) && $(TARGET) && cd ../
 
-dirs:
-	md build\Types
-	md build\Mesh
-	md build\Output
+$(BUILD):
+	md $(BUILD)\Types
+	md $(BUILD)\Mesh
+	md $(BUILD)\Output
