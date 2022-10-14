@@ -75,7 +75,7 @@ int main() {
     // inside.insertMesh(inside2);
     // mesh.insertMesh(inside);
     saveVerticesAndFaces(mesh);
-    string s = "build\\kuva1.bmp";
+    string s = "build\\kuva2.bmp";
     savePicture(mesh, s);
     mesh.fillBoundaryFlags(5);
     mesh.improveNodeByHodge(0);
