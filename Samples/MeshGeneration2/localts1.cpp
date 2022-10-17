@@ -9,11 +9,14 @@ using namespace std;
 using namespace gfd;
 
 const uint RANDOMSEED=123;
+
 const double MINNODEDST=0.01;
-const double EDGELENGTH=0.3;
+const double EDGELENGTH=2;
 const uint MESHPOINTS=EDGELENGTH*EDGELENGTH*EDGELENGTH*1000;
 const double BOUNDARYLENGTH=0.1;
+
 const uint TIMESTEPS = 100;
+const double CFLCONST = 1.99;
 
 
 void createMesh(PartMesh &pm){
@@ -32,7 +35,7 @@ void createMesh(PartMesh &pm){
     t.save("build\\meshstats.txt");
 }
 
-void calculateOperators(Dec &dec, Derivative &d1 ,Diagonal<double> &h2,Diagonal<double> &h1i, PartMesh &pm){
+void calculateOperators(Dec &dec, Derivative &d1 ,Diagonal<double> &h2, Diagonal<double> &h1i, PartMesh &pm){
     dec.integrateDerivative(fg_prim1, d1);
     //just guessing HodgeUnit3 -> calculations in 3 dimensions
     //lover values leave some points in the diagonal unaffected
@@ -57,7 +60,7 @@ void calculateOperators(Dec &dec, Derivative &d1 ,Diagonal<double> &h2,Diagonal<
 // Calculate largest eigenvalue through power iteration
 // https://en.wikipedia.org/wiki/Power_iteration
 double largestEig(Sparse<double> m, uint iterc){
-    Random rnd;
+    Random rnd(321);
     Buffer<double> v(m.m_height);
     for(uint i=0; i<m.m_height; i++)
         v[i]=rnd.getUniform();
@@ -72,22 +75,34 @@ double largestEig(Sparse<double> m, uint iterc){
 
 Random rndam;
 double one(const Buffer<double> &q){
-    return 1;
+    return rndam.getUint()/100.0;
 }
 
 void saveMatrix(Sparse<double> &m){
     Text txt;
-    uint lc = 0;
-    for(uint i=0; i<m.m_width; i++){
-        for(uint j=0; j<m.m_height; j++){
-            if(lc<m.m_col.size() && j==m.m_col[lc])
-                txt << m.m_val[lc++] << " ";
-            else
-                txt << "0 ";
-        }
-        txt << "\n";
+    // uint lc = 0;
+    // for(uint i=0; i<m.m_width; i++){
+    //     for(uint j=0; j<m.m_height; j++){
+    //         if(lc<m.m_col.size() && j==m.m_col[lc])
+    //             txt << m.m_val[lc++] << " ";
+    //         else
+    //             txt << "0 ";
+    //     }
+    //     txt << "\n";
+    // }
+    for(uint i=0; i<m.m_val.size(); i++)
+        txt << m.m_val[i] << " ";
+    txt << endl;
+    for(uint i=0; i<m.m_col.size(); i++)
+        txt << m.m_col[i] << " ";;
+    txt << endl;
+    for(uint i=0; i<m.m_beg.size()-1; i++){
+        for(int j=0; j<m.m_beg[i+1]-m.m_beg[i]; j++)
+            txt << i << " ";
     }
-    txt.save("OK.txt");
+    for(uint i=0; i<m.m_val.size()-m.m_beg[m.m_beg.size()-1]; i++)
+        txt << m.m_beg.size()-1 << " ";
+    txt.save("SystemMatrix.txt");
 }
 
 int main() {
@@ -99,16 +114,17 @@ int main() {
     Dec dec(pm, 0,pm.getDimension());
     Derivative d1;
     Diagonal<double> h2,h1i,h2i,h1;
+    dec.integrateHodge(HodgeUnit3, 0, fg_prim2, h2i).invert();
+    dec.integrateHodge(HodgeUnit3, 0, fg_prim1, h1);
     cout << "making operators\n";
     calculateOperators(dec, d1,h2,h1i, pm);
-    h2i = h2.invert(); h1 = h1i.invert();
     //calculate timesteps
     Sparse<double> systemMatrix;
     systemMatrix = h1i*transpose(d1)*h2*d1;
-    // saveMatrix(systemMatrix);
+    saveMatrix(systemMatrix);
     double le = largestEig(systemMatrix, 100);
     cout << "largest eigenvalue " << le;
-    double dt = 1.99/sqrt(le);
+    double dt = CFLCONST/sqrt(le);
     cout << " timestep size " << dt << endl;
     //iterate over time and record energy norm
     Column<double> e(0.0);
