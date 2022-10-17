@@ -9,6 +9,7 @@ Similar to std::vector but a bit more memory efficient in some cases.
 #include <memory>
 #include <stdio.h>
 #include <string.h>
+#include <vector>
 #include "Uint.hpp"
 
 namespace gfd
@@ -45,6 +46,12 @@ public:
 			memcpy(m_data, buf.m_data, m_size * sizeof(T));
 		}
 		else m_data = NULL;
+	}
+	Buffer(const std::vector<T> vals){
+		m_size = vals.size();
+		m_data = new T[m_size];
+		for(int i=0; i<m_size; i++)
+			m_data[i]=vals[i];
 	}
 	virtual ~Buffer() { clear(); }
 

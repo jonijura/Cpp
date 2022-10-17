@@ -6,6 +6,7 @@ SOURCE = Main.cpp
 
 # c++ compiler and compiler flags
 CXX = g++
+INCLUDES = -I C:\MyTemp\eigen-3.4.0\eigen-3.4.0
 CXXFLAGS := -g -Wall -Wextra -pedantic -std=c++11
 N = 1
 
@@ -22,7 +23,7 @@ all: $(BUILD) $(BUILD)/$(TARGET)
 $(BUILD)/$(TARGET): $(OBJECTS)
 	$(CXX) $(OBJECTS) -o $@
 $(BUILD)/%.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(INCLUDES) $(CXXFLAGS) -c $< -o $@
 $(BUILD)/%.o: $(LIB)/%.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 .PHONY: clean

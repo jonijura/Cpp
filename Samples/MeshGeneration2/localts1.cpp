@@ -9,18 +9,22 @@ using namespace std;
 using namespace gfd;
 
 const uint RANDOMSEED=123;
-const uint MESHPOINTS=300;
-const double MINNODEDST=0.001;
+const double MINNODEDST=0.01;
+const double EDGELENGTH=0.1;
+const uint MESHPOINTS=EDGELENGTH*EDGELENGTH*EDGELENGTH*1000;
+const double BOUNDARYLENGTH=0.1;
+
 
 void createMesh(PartMesh &pm){
     BuilderMesh msh(3);
-    msh.createGrid(Vector4(0,0,0,0), Vector4(1,1,1,0), Vector4(1,1,1,1));
+    msh.createGrid(Vector4(0,0,0,0), EDGELENGTH*Vector4(1,1,1,0), BOUNDARYLENGTH*Vector4(1,1,1,1));
     Random rnd(RANDOMSEED);
     for(uint i=0; i<MESHPOINTS; i++){
         Vector4 pt(rnd.getUniform(),rnd.getUniform(),rnd.getUniform(),0);
         if((msh.getNodePosition(msh.searchNode(pt))-pt).lensq()>MINNODEDST)
             msh.insertNode(pt,0,0,false);
     }
+    msh.fillBoundaryFlags(1);
     pm.swap(msh);
     Text t;
     pm.writeStatistics(t);
@@ -49,16 +53,27 @@ void calculateOperators(Dec &dec, Derivative &d1 ,Diagonal<double> &h2,Diagonal<
             cout << "unexpected value: " << h1ib[i] << " "<< 1.0/pm.getEdgeHodge(i) << "\n";
 }
 
+double largestEig(Sparse<double> m){
+    m.printData();
+    cout << m.m_val.size();
+    return 0.0;
+}
+
 int main() {
     //create random delaunay triangulation of a cube
     PartMesh pm(0,1,3);
+    cout << "meshing\n";
     createMesh(pm);
     //calculate opertators
     Dec dec(pm, 0,pm.getDimension());
     Derivative d1;
     Diagonal<double> h2,h1i;
+    cout << "making operators\n";
     calculateOperators(dec, d1,h2,h1i, pm);
     //calculate timesteps
-    //iterate over time
+    Sparse<double> systemMatrix;
+    systemMatrix = h1i*transpose(d1)*h2*d1;
+    double dt = 1.99/sqrt(largestEig(systemMatrix));
+    //iterate over time and record energy norm
     
 }
