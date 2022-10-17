@@ -10,9 +10,10 @@ using namespace gfd;
 
 const uint RANDOMSEED=123;
 const double MINNODEDST=0.01;
-const double EDGELENGTH=0.1;
+const double EDGELENGTH=0.3;
 const uint MESHPOINTS=EDGELENGTH*EDGELENGTH*EDGELENGTH*1000;
 const double BOUNDARYLENGTH=0.1;
+const uint TIMESTEPS = 100;
 
 
 void createMesh(PartMesh &pm){
@@ -53,10 +54,40 @@ void calculateOperators(Dec &dec, Derivative &d1 ,Diagonal<double> &h2,Diagonal<
             cout << "unexpected value: " << h1ib[i] << " "<< 1.0/pm.getEdgeHodge(i) << "\n";
 }
 
-double largestEig(Sparse<double> m){
-    m.printData();
-    cout << m.m_val.size();
-    return 0.0;
+// Calculate largest eigenvalue through power iteration
+// https://en.wikipedia.org/wiki/Power_iteration
+double largestEig(Sparse<double> m, uint iterc){
+    Random rnd;
+    Buffer<double> v(m.m_height);
+    for(uint i=0; i<m.m_height; i++)
+        v[i]=rnd.getUniform();
+    Column<double> cd(v,0);
+    for(uint i=0; i<iterc; i++){
+        cd.scale(1.0/sqrt(cd.getLensq()));
+        cd = m*cd;
+    }
+    cd.scale(1.0/sqrt(cd.getLensq()));
+    return cd.getDot(m*cd);
+}
+
+Random rndam;
+double one(const Buffer<double> &q){
+    return 1;
+}
+
+void saveMatrix(Sparse<double> &m){
+    Text txt;
+    uint lc = 0;
+    for(uint i=0; i<m.m_width; i++){
+        for(uint j=0; j<m.m_height; j++){
+            if(lc<m.m_col.size() && j==m.m_col[lc])
+                txt << m.m_val[lc++] << " ";
+            else
+                txt << "0 ";
+        }
+        txt << "\n";
+    }
+    txt.save("OK.txt");
 }
 
 int main() {
@@ -67,13 +98,32 @@ int main() {
     //calculate opertators
     Dec dec(pm, 0,pm.getDimension());
     Derivative d1;
-    Diagonal<double> h2,h1i;
+    Diagonal<double> h2,h1i,h2i,h1;
     cout << "making operators\n";
     calculateOperators(dec, d1,h2,h1i, pm);
+    h2i = h2.invert(); h1 = h1i.invert();
     //calculate timesteps
     Sparse<double> systemMatrix;
     systemMatrix = h1i*transpose(d1)*h2*d1;
-    double dt = 1.99/sqrt(largestEig(systemMatrix));
+    // saveMatrix(systemMatrix);
+    double le = largestEig(systemMatrix, 100);
+    cout << "largest eigenvalue " << le;
+    double dt = 1.99/sqrt(le);
+    cout << " timestep size " << dt << endl;
     //iterate over time and record energy norm
-    
+    Column<double> e(0.0);
+	dec.integrateForm(one, 10, fg_prim1, e);
+	Column<double> h(0.0);
+	dec.integrateZeroForm(fg_prim2, h);
+    Sparse<double> A,B;
+    A.setScale(dt,h1i*transpose(d1));
+    B.setScale(dt,-h2*d1);
+    Text sol;
+    for(uint i=0; i<TIMESTEPS; i++){
+        h+=B*e;
+        e+=A*h;
+        double p=0.5*(e.getDot(h1*e) + h.getDot(h2i*h));
+        sol << p << "\n";
+    }
+    sol.save("sol.txt");
 }
