@@ -15,7 +15,7 @@ const double EDGELENGTH=1;
 const uint MESHPOINTS=EDGELENGTH*EDGELENGTH*EDGELENGTH*1000;
 const double BOUNDARYLENGTH=0.1;
 
-const uint TIMESTEPS = 10000;
+const uint TIMESTEPS = 20000;
 const double CFLCONST = 1.9;
 
 void savePicture(Mesh &mesh){
@@ -98,6 +98,7 @@ double largestEig(Sparse<double> m, uint iterc){
 
 Random rndam;
 double rnd(const Buffer<double> &q){
+    return 0;
     return rndam.getUniform();
 }
 
@@ -162,13 +163,18 @@ int main() {
     A.setScale(dt,h1i*transpose(d1));
     B.setScale(dt,-h2*d1);
     C.setScale(0.5*dt,-h2*d1);
+    uint source = pm.findNode(Vector4(EDGELENGTH/2.0,EDGELENGTH/2.0,EDGELENGTH/2.0,0),0.1);
+    cout << source <<  " " << pm.getNodePosition3(source).x;
+    const double fm = 5.0;
+    const double lev = 20/(PI*fm);  
     Text sol;
     for(uint i=0; i<TIMESTEPS; i++){
         h+=B*e;
         e+=A*h;
-        double p=0.5*(e.getDot(h1*e) + h.getDot(h2i*h));
-        // hsync = h + C*e; //has very little effect?
-        // double p=0.5*(e.getDot(h1*e) + hsync.getDot(h2i*hsync));
+        e.m_val[source]+=exp(-(i*dt-3*lev)*(i*dt-3*lev)/(lev*lev))*sin(PIx2*fm*(i*dt-3*lev));
+        // double p=0.5*(e.getDot(h1*e) + h.getDot(h2i*h));
+        hsync = h + C*e; //has very little effect?
+        double p=0.5*(e.getDot(h1*e) + hsync.getDot(h2i*hsync));
         sol << p << "\n";
     }
     sol.save("build\\sol.txt");
