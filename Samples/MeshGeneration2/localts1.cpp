@@ -170,11 +170,12 @@ int main() {
     Text sol;
     for(uint i=0; i<TIMESTEPS; i++){
         h+=B*e;
+        // double p = 0.5*((e+A*h).getDot(h1*e) +  h.getDot(h2i*h));
         e+=A*h;
         e.m_val[source]+=exp(-(i*dt-3*lev)*(i*dt-3*lev)/(lev*lev))*sin(PIx2*fm*(i*dt-3*lev));
-        // double p=0.5*(e.getDot(h1*e) + h.getDot(h2i*h));
-        hsync = h + C*e; //has very little effect?
-        double p=0.5*(e.getDot(h1*e) + hsync.getDot(h2i*hsync));
+        double p=0.5*(e.getDot(h1*e) + h.getDot(h2i*h));
+        // hsync = h + C*e; //has very little effect? not even the right way to calculate energy, but gives the same result
+        // double p=0.5*(e.getDot(h1*e) + hsync.getDot(h2i*hsync));
         sol << p << "\n";
     }
     sol.save("build\\sol.txt");
