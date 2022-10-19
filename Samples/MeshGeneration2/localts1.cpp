@@ -3,6 +3,7 @@
 #include "../../GFD/Mesh/PartMesh.hpp"
 #include "../../GFD/Discrete/Dec.hpp"
 #include "../../GFD/Output/MeshDrawer.hpp"
+#include <algorithm>
 #include <filesystem>
 #include <iostream>
 using namespace std;
@@ -11,7 +12,7 @@ using namespace gfd;
 const uint RANDOMSEED=27;
 
 const double MINNODEDST=0.0001;
-const double EDGELENGTH=0.3;
+const double EDGELENGTH=0.5;
 const uint MESHPOINTS=EDGELENGTH*EDGELENGTH*EDGELENGTH*1000;
 const double BOUNDARYLENGTH=0.1;
 
@@ -122,9 +123,10 @@ double calculateGlobalTimestep(){
     systemMatrix = h1i*transpose(d1)*h2*d1;
     saveMatrix(systemMatrix);
     double le = largestEig(systemMatrix, 100);
-    cout << "largest eigenvalue " << le;
+    cout << "\tlargest eigenvalue " << le;
     double dt = CFLCONST/sqrt(le);
-    cout << " timestep size " << dt << endl;
+    cout << "\n\ttimestep size " << dt;
+    cout << "\n\toperations per unit time: " << (pm.getEdgeSize()+pm.getFaceSize())/dt << endl;
     return dt;
 }
 
@@ -141,7 +143,7 @@ void iterateGlobal(Dec &dec){
 	dec.integrateForm(rnd, 10, fg_prim1, e);
 	dec.integrateZeroForm(fg_prim2, h);
     uint source = pm.findNode(Vector4(EDGELENGTH/2.0,EDGELENGTH/2.0,EDGELENGTH/2.0,0),0.1);
-    cout << "source position: " << source <<  " " << pm.getNodePosition3(source).x << endl;
+    cout << "\tsource position: " << source <<  " " << pm.getNodePosition3(source).x << endl;
     const double fm = 5.0;
     const double lev = 20/(PI*fm);
     Text sol;
@@ -160,7 +162,7 @@ void iterateGlobal(Dec &dec){
     sol.save("build\\sourcePulse.txt");
 }
 
-void calculateLocalTimesteps(Buffer<double> &et, Buffer<double> &ht){
+void calculateLocalTimestepLimits(Buffer<double> &et, Buffer<double> &ht){
     uint en = pm.getEdgeSize();
     Column<double> maxet(en,0.0);
     for(uint i=0; i<en; i++)
@@ -191,25 +193,101 @@ void calculateLocalTimesteps(Buffer<double> &et, Buffer<double> &ht){
     ht.resize(ef);
     for(uint i=0; i<ef; i++)
         ht[i] = sqrt(NONUNIFORMC*maxht.m_val[i]/systemh.m_val[i]);
+    
+    cout << "\te max timestep: " << et.max() << " min: " << et.min();
+    cout << "\n\th max timestep: " << ht.max() << " min: " << ht.min();
+}
+
+void calculateDivisionCoeficcients(Buffer<double> &et, Buffer<double> &ht, double dt, Buffer<uint> &ecoeffs, Buffer<uint> &hcoeffs){
+    int count[10] = {};
+
+    uint ne = et.size();
+    ecoeffs.resize(ne);
+    for(uint i=0; i<ne; i++){
+        Buffer<uint> nbf = pm.getEdgeFaces(i);
+        double mindt = et[i];
+        for(uint j=0; j<nbf.size(); j++)
+            mindt = min(mindt, ht[nbf[j]]);
+        int dc = 1;
+        int pow = 0;
+        while(mindt*dc<dt){
+            dc*=3;
+            pow++;
+        }
+        count[pow]++;
+        ecoeffs[i]=dc;
+    }
+
+    uint nf = ht.size();
+    hcoeffs.resize(nf);
+    for(uint i=0; i<nf; i++){
+        Buffer<uint> nbe = pm.getFaceEdges(i);
+        double mindt = ht[i];
+        for(uint j=0; j<nbe.size(); j++)
+            mindt = min(mindt, ht[nbe[j]]);
+        int dc = 1;
+        int pow = 0;
+        while(mindt*dc<dt){
+            dc*=3;
+            pow++;
+        }
+        count[pow]++;
+        hcoeffs[i]=dc;
+    }
+
+    int factor = 1;
+    double avgTs;
+    int ops = 0;
+    cout<< "\tfactor: ";
+    for(int i=0; i<10; i++){
+        if(count[i]!=0)
+            cout << factor << ": " << count[i] << " ";
+        avgTs += count[i]*dt/factor;
+        ops += count[i]*factor;
+        factor*=3;
+    }
+    cout << "\n\taverage timestep size: " << avgTs/(ne+nf) << "\n\toperations per unit time: " << ops/dt << endl;
+}
+
+void arrangeUpdates(vector<tuple<bool,uint,double>> &order, Buffer<uint> &dce, Buffer<uint> &dch){
+    int size = dce.sum()+dch.sum();
+    order.resize(size);
+    int loc = 0;
+    for(uint i=0; i<dce.size(); i++)
+        for(uint j=0; j<dce[i]; j++)
+            order[loc++]=make_tuple(true,i,(j+0.5)/dce[i]);
+    for(uint i=0; i<dch.size(); i++)
+        for(uint j=0; j<dch[i]; j++)
+            order[loc++]=make_tuple(false,i,(j+0.0)/dch[i]);
+    sort(order.begin(), order.end(), [](const tuple<bool,uint,double> & a, const tuple<bool,uint,double> & b) -> bool
+    { 
+        return get<2>(a) < get<2>(b); 
+    });
 }
 
 void iterateLocal1(Dec &dec){
     Buffer<double> et,ht;
-    calculateLocalTimesteps(et,ht);
-    cout << "e max timestep: " << et.max() << " min: " << et.min();
-    cout << "\nh max timestep: " << ht.max() << " min: " << ht.min() << endl;
+    calculateLocalTimestepLimits(et,ht);
+    double dt = 0.15*(et.max()+ht.max());//81.0*min(et.min(),ht.min());//
+    cout << "\n\tsyncronous timestep size: " << dt << endl;
+    Buffer<uint> dce, dch;
+    calculateDivisionCoeficcients(et,ht,dt, dce, dch);
+    vector<tuple<bool,uint,double>> updateOrder;
+    arrangeUpdates(updateOrder, dce, dch);
+    cout << "updateorders sorted " << updateOrder.size();
 }
 
 int main() {
     //create random delaunay triangulation of a cube
-    cout << "meshing\n\n";
+    cout << "meshing ... \n";
     createMesh();
     //calculate opertators
-    cout << "making operators\n\n";
+    cout << "making operators ... \n";
     Dec dec(pm, 0, pm.getDimension());
     createOperations(dec);
     //iterate over time and record energy norm
-    cout << "timestepping\n\n";
+    cout << "timestepping with global timestep ... \n";
     iterateGlobal(dec);
+    cout << "timestepping with local timestep ... \n";
     iterateLocal1(dec);
 }

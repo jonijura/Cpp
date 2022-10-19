@@ -105,6 +105,14 @@ public:
 		}
 		return min;
 	}
+	T sum() {
+		if(m_size==0)return NULL;
+		T sum = m_data[0];
+		for(uint i=1; i<m_size; i++){
+			sum += m_data[i];
+		}
+		return sum;
+	}
 	void push_back(const T &val)
 	{
 		T *data = new T[m_size + 1];
