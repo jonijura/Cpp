@@ -10,6 +10,7 @@ Similar to std::vector but a bit more memory efficient in some cases.
 #include <stdio.h>
 #include <string.h>
 #include "Uint.hpp"
+#include <iostream>
 
 namespace gfd
 {
@@ -80,6 +81,29 @@ public:
 			m_data = NULL;
 			m_size = 0;
 		}
+	}
+	void print(){
+		for(uint i=0; i<m_size; i++)
+			std::cout << m_data[i] << " ";
+		std::cout << std::endl;
+	}
+	T max() {
+		if(m_size==0)return NULL;
+		T max = m_data[0];
+		for(uint i=0; i<m_size; i++){
+			if(m_data[i]>max)
+				max = m_data[i];
+		}
+		return max;
+	}
+	T min() {
+		if(m_size==0)return NULL;
+		T min = m_data[0];
+		for(uint i=0; i<m_size; i++){
+			if(m_data[i]<min)
+				min = m_data[i];
+		}
+		return min;
 	}
 	void push_back(const T &val)
 	{

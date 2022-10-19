@@ -58,6 +58,11 @@ void createMesh(){
             msh.insertNode(pt,0,0,false);
     }
     msh.fillBoundaryFlags(BOUNDARYFLAG);
+
+    // cout << "USING CUBE MESH" <<endl;
+    // msh.clear();
+    // msh.createGrid(Vector4(0,0,0,0), EDGELENGTH*Vector4(1,1,1,0), BOUNDARYLENGTH*Vector4(1,1,1,1));
+
     pm.swap(msh);
     Text t;
     pm.writeStatistics(t);
@@ -159,19 +164,30 @@ void calculateLocalTimesteps(Buffer<double> &et, Buffer<double> &ht){
     uint en = pm.getEdgeSize();
     Column<double> maxet(en,0.0);
     for(uint i=0; i<en; i++)
-        maxet.m_val[i] = 1.0/sqrt(h1i.m_val[i]);
-    Column<double> systeme(0.0);
-    systeme = h1i*transpose(d1)*h2*d1*maxet;
+        maxet.m_val[i] = sqrt(fabs(h1i.m_val[i]));
+    Sparse<double> systeme(0.0);
+    systeme = h1i*transpose(d1)*h2*d1;
+    for(uint i=0; i<systeme.m_val.size(); i++)
+        systeme.m_val[i] = fabs(systeme.m_val[i]);
+    systeme = systeme*maxet;
     et.resize(en);
     for(uint i=0; i<en; i++)
         et[i] = sqrt(NONUNIFORMC*maxet.m_val[i]/systeme.m_val[i]);
-    
+
+    // h1.m_val.print();
+    // maxet.m_val.print();
+    // systeme.m_val.print();
+    // et.print();
+
     uint ef = pm.getFaceSize();
     Column<double> maxht(ef,0.0);
     for(uint i=0; i<ef; i++)
-        maxht.m_val[i] = 1.0/sqrt(h2.m_val[i]);
-    Column<double> systemh(0.0);
-    systemh = h2*d1*h1i*transpose(d1)*maxht;
+        maxht.m_val[i] = sqrt(fabs(h2.m_val[i]));
+    Sparse<double> systemh(0.0);
+    systemh = h2*d1*h1i*transpose(d1);
+    for(uint i=0; i<systemh.m_val.size(); i++)
+        systemh.m_val[i] = fabs(systemh.m_val[i]);
+    systemh = systemh*maxht;
     ht.resize(ef);
     for(uint i=0; i<ef; i++)
         ht[i] = sqrt(NONUNIFORMC*maxht.m_val[i]/systemh.m_val[i]);
@@ -180,6 +196,8 @@ void calculateLocalTimesteps(Buffer<double> &et, Buffer<double> &ht){
 void iterateLocal1(Dec &dec){
     Buffer<double> et,ht;
     calculateLocalTimesteps(et,ht);
+    cout << "e max timestep: " << et.max() << " min: " << et.min();
+    cout << "\nh max timestep: " << ht.max() << " min: " << ht.min() << endl;
 }
 
 int main() {
