@@ -10,6 +10,7 @@ Similar to std::vector but a bit more memory efficient in some cases.
 #include <stdio.h>
 #include <string.h>
 #include "Uint.hpp"
+#include <stdexcept>
 #include <iostream>
 
 namespace gfd
@@ -461,7 +462,13 @@ public:
 	{
 		for(uint i=0; i<m_size; i++) m_data[i] = val;
 	}
-	T &operator [](const uint i) const { return m_data[i]; }
+	T &operator [](const uint i) const { 
+		if(i>=m_size){//too dumb to live without this
+			throw std::invalid_argument( "array out of bounds" );
+		}
+		return m_data[i];
+		
+	 }
 	bool operator==(const Buffer &buf) const {
 		if(m_size != buf.m_size) return false;
 		for(uint i=0; i<m_size; i++) {

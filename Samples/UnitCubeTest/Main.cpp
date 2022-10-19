@@ -17,7 +17,7 @@
  * 
  * GENERAL QUESTIONS:
  * how do quadratures work?
- * node weight?
+ * node weight? 
  * general form of a grid?
  * how mpi works?
  */

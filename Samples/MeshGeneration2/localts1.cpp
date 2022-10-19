@@ -9,14 +9,18 @@
 using namespace std;
 using namespace gfd;
 
+/**
+ * Repeat experiments on asyncronous timesteps by Jukka and AVI
+ * alustaminen satunnaisfunktiolla reunaehdon mukaisesti, reunoilla nollaa?
+ */
 const uint RANDOMSEED=27;
 
 const double MINNODEDST=0.0001;
-const double EDGELENGTH=0.5;
+const double EDGELENGTH=.2;
 const uint MESHPOINTS=EDGELENGTH*EDGELENGTH*EDGELENGTH*1000;
 const double BOUNDARYLENGTH=0.1;
 
-const uint TIMESTEPS = 50;
+const double SIMULATIONPERIOD = 30.0;
 const double CFLCONST = 1.9;
 const double NONUNIFORMC = 3.9;
 
@@ -125,7 +129,7 @@ double calculateGlobalTimestep(){
     double le = largestEig(systemMatrix, 100);
     cout << "\tlargest eigenvalue " << le;
     double dt = CFLCONST/sqrt(le);
-    cout << "\n\ttimestep size " << dt;
+    cout << "\n\ttimestep size " << dt << " iterations " << int(SIMULATIONPERIOD/dt);
     cout << "\n\toperations per unit time: " << (pm.getEdgeSize()+pm.getFaceSize())/dt << endl;
     return dt;
 }
@@ -148,7 +152,8 @@ void iterateGlobal(Dec &dec){
     const double lev = 20/(PI*fm);
     Text sol;
     Text pulse;
-    for(double i=0; i<TIMESTEPS; i++){
+    double timesteps = SIMULATIONPERIOD/dt;
+    for(double i=0; i<timesteps; i++){
         h+=B*e;
         // double p = 0.5*((e+A*h).getDot(h1*e) +  h.getDot(h2i*h));
         e+=A*h;
@@ -158,8 +163,8 @@ void iterateGlobal(Dec &dec){
         sol << p << "\n";
         pulse << j << "\n";
     }
-    pulse.save("build\\globalTimestepEnergy.txt");
-    sol.save("build\\sourcePulse.txt");
+    sol.save("build\\globalTimestepEnergy.txt");
+    pulse.save("build\\sourcePulse.txt");
 }
 
 void calculateLocalTimestepLimits(Buffer<double> &et, Buffer<double> &ht){
@@ -265,16 +270,69 @@ void arrangeUpdates(vector<tuple<bool,uint,double>> &order, Buffer<uint> &dce, B
     });
 }
 
+void makeLocalOperators(vector<Column<double>> &oA, vector<Column<double>> &oB){
+    Buffer<double> edgeFlags(pm.getEdgeSize());
+    for(uint i=0; i<pm.getEdgeSize(); i++)
+        edgeFlags[i]=pm.getEdgeFlag(i)==BOUNDARYFLAG ? 0 : 1;
+    Diagonal<double> diriclet(edgeFlags,0.0);//TODO: make sparse to save time
+    Sparse<double> A,B;
+    A=diriclet*h1i*transpose(d1);
+    B=-h2*d1;
+    for(uint i=0; i<A.m_height; i++){
+        Buffer<pair<uint, double>> vals;
+        uint end = i+1==A.m_height ? A.m_val.size() : A.m_beg[i+1];
+        for(uint j=A.m_beg[i]; j<end; j++)
+            vals.push_back(make_pair(i,A.m_val[A.m_beg[i]+j]));
+        Column<double> row(A.m_width, vals, 0.0);
+        oA.push_back(row);
+    }
+    for(uint i=0; i<B.m_height; i++){ 
+        Buffer<pair<uint, double>> vals;
+        uint end = i+1==B.m_height ? B.m_val.size() : B.m_beg[i+1];
+        for(uint j=B.m_beg[i]; j<end; j++)
+            vals.push_back(make_pair(i,B.m_val[B.m_beg[i]+j]));
+        Column<double> row(B.m_width, vals, 0.0);
+        oB.push_back(row);
+    }
+}
+
 void iterateLocal1(Dec &dec){
     Buffer<double> et,ht;
     calculateLocalTimestepLimits(et,ht);
     double dt = 0.15*(et.max()+ht.max());//81.0*min(et.min(),ht.min());//
-    cout << "\n\tsyncronous timestep size: " << dt << endl;
+    double steps = SIMULATIONPERIOD/dt;
+    cout << "\n\tsyncronous timestep size: " << dt  << " iteration count " << int(steps) << endl;
     Buffer<uint> dce, dch;
     calculateDivisionCoeficcients(et,ht,dt, dce, dch);
     vector<tuple<bool,uint,double>> updateOrder;
     arrangeUpdates(updateOrder, dce, dch);
-    cout << "updateorders sorted " << updateOrder.size();
+
+    vector<Column<double>> A,B;
+    makeLocalOperators(A,B);
+    Column<double> e(0.0), h(0.0);
+	dec.integrateZeroForm(fg_prim1, e);
+	dec.integrateZeroForm(fg_prim2, h);
+    uint source = pm.findNode(Vector4(EDGELENGTH/2.0,EDGELENGTH/2.0,EDGELENGTH/2.0,0),0.1);
+    cout << "\tsource position: " << source <<  " " << pm.getNodePosition3(source).x << endl;
+    const double fm = 5.0;
+    const double lev = 20/(PI*fm);
+    uint n;
+    Text sol;
+    for(double i=0; i<steps; i++){
+        for(auto a : updateOrder){
+            n = get<1>(a);
+            if(get<0>(a)){
+                e.m_val[n]+=dt/dce[n]*A[n].getDot(h);
+                if(n==source)
+                    e.m_val[source]+=exp(-(i*dt-3*lev)*(i*dt-3*lev)/(lev*lev))*sin(PIx2*fm*(i*dt-3*lev));
+            }
+            else
+                h.m_val[n]-=dt/dch[n]*B[n].getDot(e);
+        }
+        double p=0.5*(e.getDot(h1*e) + h.getDot(h2i*h));
+        sol << p << "\n";
+    }
+    sol.save("build\\localTimestepEnergy.txt");
 }
 
 int main() {
@@ -289,5 +347,5 @@ int main() {
     cout << "timestepping with global timestep ... \n";
     iterateGlobal(dec);
     cout << "timestepping with local timestep ... \n";
-    iterateLocal1(dec);
+    // iterateLocal1(dec);
 }
