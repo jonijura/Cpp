@@ -115,7 +115,7 @@ void saveMatrix(Sparse<double> &m){
 }
 
 void createOperations(Dec &dec){
-    dec.integrateDerivative(fg_prim1, d1);
+    dec.integrateDerivative(fg_prim1, d1); 
     dec.integrateHodge(HodgeUnit3, 0, fg_prim1, h1);
     dec.integrateHodge(HodgeUnit3, 0, fg_prim2, h2);
     dec.integrateHodge(HodgeUnit3, 0, fg_prim1, h1i).invert();
@@ -282,7 +282,7 @@ void makeLocalOperators(vector<Column<double>> &oA, vector<Column<double>> &oB){
         Buffer<pair<uint, double>> vals;
         uint end = i+1==A.m_height ? A.m_val.size() : A.m_beg[i+1];
         for(uint j=A.m_beg[i]; j<end; j++)
-            vals.push_back(make_pair(i,A.m_val[A.m_beg[i]+j]));
+            vals.push_back(make_pair(A.m_col[j],A.m_val[j]));
         Column<double> row(A.m_width, vals, 0.0);
         oA.push_back(row);
     }
@@ -290,7 +290,7 @@ void makeLocalOperators(vector<Column<double>> &oA, vector<Column<double>> &oB){
         Buffer<pair<uint, double>> vals;
         uint end = i+1==B.m_height ? B.m_val.size() : B.m_beg[i+1];
         for(uint j=B.m_beg[i]; j<end; j++)
-            vals.push_back(make_pair(i,B.m_val[B.m_beg[i]+j]));
+            vals.push_back(make_pair(B.m_col[j],B.m_val[j]));
         Column<double> row(B.m_width, vals, 0.0);
         oB.push_back(row);
     }
@@ -300,7 +300,7 @@ void iterateLocal1(Dec &dec){
     Buffer<double> et,ht;
     calculateLocalTimestepLimits(et,ht);
     double dt = 0.15*(et.max()+ht.max());//81.0*min(et.min(),ht.min());//
-    double steps = SIMULATIONPERIOD/dt;
+    double steps = SIMULATIONPERIOD/dt; 
     cout << "\n\tsyncronous timestep size: " << dt  << " iteration count " << int(steps) << endl;
     Buffer<uint> dce, dch;
     calculateDivisionCoeficcients(et,ht,dt, dce, dch);
@@ -308,7 +308,7 @@ void iterateLocal1(Dec &dec){
     arrangeUpdates(updateOrder, dce, dch);
 
     vector<Column<double>> A,B;
-    makeLocalOperators(A,B);
+    makeLocalOperators(A,B); 
     Column<double> e(0.0), h(0.0);
 	dec.integrateZeroForm(fg_prim1, e);
 	dec.integrateZeroForm(fg_prim2, h);
@@ -347,5 +347,5 @@ int main() {
     cout << "timestepping with global timestep ... \n";
     iterateGlobal(dec);
     cout << "timestepping with local timestep ... \n";
-    // iterateLocal1(dec);
+    iterateLocal1(dec);
 }

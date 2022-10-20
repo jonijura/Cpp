@@ -29,6 +29,7 @@ void Dec::setHighDimension(const uint highdim) {
 }
 
 void Dec::combineExternals(const Buffer< pair<uint,uint> > &ext, Buffer<Quadrature> &q) const {
+	if(ext.size()==0)return;
 	Quadrature *extq = &q[q.size() - ext.size()];
 	const Buffer< pair<uint,uint> > mext = getMyExternals(ext);
 	const uint rank = getMPIrank();
