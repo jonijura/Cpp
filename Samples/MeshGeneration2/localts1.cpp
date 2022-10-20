@@ -4,6 +4,7 @@
 #include "../../GFD/Discrete/Dec.hpp"
 #include "../../GFD/Output/MeshDrawer.hpp"
 #include <algorithm>
+#include <iomanip>
 #include <filesystem>
 #include <iostream>
 using namespace std;
@@ -16,7 +17,7 @@ using namespace gfd;
 const uint RANDOMSEED=27;
 
 const double MINNODEDST=0.0001;
-const double EDGELENGTH=.2;
+const double EDGELENGTH=.3;
 const uint MESHPOINTS=EDGELENGTH*EDGELENGTH*EDGELENGTH*1000;
 const double BOUNDARYLENGTH=0.1;
 
@@ -229,7 +230,7 @@ void calculateDivisionCoeficcients(Buffer<double> &et, Buffer<double> &ht, doubl
         Buffer<uint> nbe = pm.getFaceEdges(i);
         double mindt = ht[i];
         for(uint j=0; j<nbe.size(); j++)
-            mindt = min(mindt, ht[nbe[j]]);
+            mindt = min(mindt, et[nbe[j]]);
         int dc = 1;
         int pow = 0;
         while(mindt*dc<dt){
@@ -268,6 +269,34 @@ void arrangeUpdates(vector<tuple<bool,uint,double>> &order, Buffer<uint> &dce, B
     { 
         return get<2>(a) < get<2>(b); 
     });
+}
+
+void printLocalOps(Sparse<double> &A, vector<Column<double>> &oA){
+    if(A.m_height>=30){
+        cout << "refusing to print something this big!\n";
+        return; 
+    }
+    uint lc = 0;
+    for(uint i=0; i<A.m_height; i++){
+        for(uint j=0; j<A.m_width; j++){
+            if(lc<A.m_col.size() && j==A.m_col[lc])
+                cout << " " << setprecision(3) << setfill(' ') << setw(5) << A.m_val[lc++];
+            else
+                cout << "     0";
+        }
+        cout << "\n";
+    }
+    cout << "\n\n";
+    for(auto a : oA){
+        lc=0;
+        for(uint j=0; j<a.m_height; j++){
+            if(lc<a.m_row.size() && j==a.m_row[lc])
+                cout << " " << setprecision(3) << setfill(' ') << setw(5) << a.m_val[lc++];
+            else
+                cout << "     0";
+        }
+        cout << "\n";
+    }
 }
 
 void makeLocalOperators(vector<Column<double>> &oA, vector<Column<double>> &oB){
@@ -324,10 +353,10 @@ void iterateLocal1(Dec &dec){
             if(get<0>(a)){
                 e.m_val[n]+=dt/dce[n]*A[n].getDot(h);
                 if(n==source)
-                    e.m_val[source]+=exp(-(i*dt-3*lev)*(i*dt-3*lev)/(lev*lev))*sin(PIx2*fm*(i*dt-3*lev));
+                    e.m_val[source]+=exp(-(i*dt/dce[source]-3*lev)*(i*dt/dce[source]-3*lev)/(lev*lev))*sin(PIx2*fm*(i*dt/dce[source]-3*lev));
             }
             else
-                h.m_val[n]-=dt/dch[n]*B[n].getDot(e);
+                h.m_val[n]+=dt/dch[n]*B[n].getDot(e);
         }
         double p=0.5*(e.getDot(h1*e) + h.getDot(h2i*h));
         sol << p << "\n";
