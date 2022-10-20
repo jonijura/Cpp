@@ -17,13 +17,13 @@ using namespace gfd;
 const uint RANDOMSEED=27;
 
 const double MINNODEDST=0.0001;
-const double EDGELENGTH=.3;
+const double EDGELENGTH=1.0;
 const uint MESHPOINTS=EDGELENGTH*EDGELENGTH*EDGELENGTH*1000;
 const double BOUNDARYLENGTH=0.1;
 
 const double SIMULATIONPERIOD = 30.0;
 const double CFLCONST = 1.9;
-const double NONUNIFORMC = 3.9;
+const double NONUNIFORMC = 1.9;
 
 const uint BOUNDARYFLAG = 1;
 
@@ -94,7 +94,6 @@ double largestEig(Sparse<double> m, uint iterc){
 
 Random rndam;
 double rnd(const Buffer<double> &q){
-    return 0;
     return rndam.getUniform();
 }
 
@@ -146,6 +145,7 @@ void iterateGlobal(Dec &dec){
     B.setScale(dt,-h2*d1);
     Column<double> e(0.0), h(0.0);
 	dec.integrateForm(rnd, 10, fg_prim1, e);
+    e=diriclet*e;
 	dec.integrateZeroForm(fg_prim2, h);
     uint source = pm.findNode(Vector4(EDGELENGTH/2.0,EDGELENGTH/2.0,EDGELENGTH/2.0,0),0.1);
     cout << "\tsource position: " << source <<  " " << pm.getNodePosition3(source).x << endl;
@@ -156,11 +156,11 @@ void iterateGlobal(Dec &dec){
     double timesteps = SIMULATIONPERIOD/dt;
     for(double i=0; i<timesteps; i++){
         h+=B*e;
-        // double p = 0.5*((e+A*h).getDot(h1*e) +  h.getDot(h2i*h));
+        double p = 0.5*((e+A*h).getDot(h1*e) +  h.getDot(h2i*h));
         e+=A*h;
         double j = exp(-(i*dt-3*lev)*(i*dt-3*lev)/(lev*lev))*sin(PIx2*fm*(i*dt-3*lev));
-        e.m_val[source]+=j;
-        double p=0.5*(e.getDot(h1*e) + h.getDot(h2i*h));
+        // e.m_val[source]+=j;
+        // double p=0.5*(e.getDot(h1*e) + h.getDot(h2i*h));
         sol << p << "\n";
         pulse << j << "\n";
     }
@@ -335,26 +335,25 @@ void iterateLocal1(Dec &dec){
     calculateDivisionCoeficcients(et,ht,dt, dce, dch);
     vector<tuple<bool,uint,double>> updateOrder;
     arrangeUpdates(updateOrder, dce, dch);
-
     vector<Column<double>> A,B;
     makeLocalOperators(A,B); 
     Column<double> e(0.0), h(0.0);
-	dec.integrateZeroForm(fg_prim1, e);
+	dec.integrateForm(rnd, 10, fg_prim1, e);
 	dec.integrateZeroForm(fg_prim2, h);
+    Buffer<double> edgeFlags(pm.getEdgeSize());
+    for(uint i=0; i<pm.getEdgeSize(); i++)
+        edgeFlags[i]=pm.getEdgeFlag(i)==BOUNDARYFLAG ? 0 : 1;
+    Diagonal<double> diriclet(edgeFlags,0.0);
+    e=e*diriclet;
     uint source = pm.findNode(Vector4(EDGELENGTH/2.0,EDGELENGTH/2.0,EDGELENGTH/2.0,0),0.1);
     cout << "\tsource position: " << source <<  " " << pm.getNodePosition3(source).x << endl;
-    const double fm = 5.0;
-    const double lev = 20/(PI*fm);
     uint n;
     Text sol;
     for(double i=0; i<steps; i++){
         for(auto a : updateOrder){
             n = get<1>(a);
-            if(get<0>(a)){
+            if(get<0>(a))
                 e.m_val[n]+=dt/dce[n]*A[n].getDot(h);
-                if(n==source)
-                    e.m_val[source]+=exp(-(i*dt/dce[source]-3*lev)*(i*dt/dce[source]-3*lev)/(lev*lev))*sin(PIx2*fm*(i*dt/dce[source]-3*lev));
-            }
             else
                 h.m_val[n]+=dt/dch[n]*B[n].getDot(e);
         }
