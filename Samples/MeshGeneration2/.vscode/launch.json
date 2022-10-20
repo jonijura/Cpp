@@ -7,7 +7,7 @@
             "program": "${fileDirname}\\build\\run.exe",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${fileDirname}",
+            "cwd": "${fileDirname}\\build",
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",

@@ -78,8 +78,8 @@ int main() {
     string s = "build\\kuva2.bmp";
     savePicture(mesh, s);
     mesh.fillBoundaryFlags(5);
-    mesh.improveNodeByHodge(0);
-    mesh.optimizeNodes(UintSet(0));
+    // mesh.improveNodeByHodge(0);
+    // mesh.optimizeNodes(UintSet(0));
     string s2 = "build\\kuva3.bmp";
     savePicture(mesh, s2); 
 }

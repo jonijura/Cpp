@@ -7,28 +7,28 @@
 #include <iomanip>
 #include <filesystem>
 #include <iostream>
+#include <chrono>
 using namespace std;
 using namespace gfd;
 
 /**
  * Repeat experiments on asyncronous timesteps by Jukka and AVI
- * alustaminen satunnaisfunktiolla reunaehdon mukaisesti, reunoilla nollaa?
  */
-const uint RANDOMSEED=27;
+const uint RANDOMSEED=127;
 
 const double MINNODEDST=0.0001;
-const double EDGELENGTH=1.0;
+const double EDGELENGTH=0.3;
 const uint MESHPOINTS=EDGELENGTH*EDGELENGTH*EDGELENGTH*1000;
 const double BOUNDARYLENGTH=0.1;
 
 const double SIMULATIONPERIOD = 30.0;
 const double CFLCONST = 1.9;
-const double NONUNIFORMC = 1.9;
+const double NONUNIFORMC = 3.9;
 
 const uint BOUNDARYFLAG = 1;
 
 Derivative d1;
-Diagonal<double> h2,h1i,h2i,h1;
+Diagonal<double> h2,h1i,h2i,h1, diriclet;
 PartMesh pm(0,1,3);
 
 void savePicture(){
@@ -38,7 +38,7 @@ void savePicture(){
     md.initPosition(Vector4(2,2,2,0), Vector4(0.5,0.5,0.5,0), Vector4(.2,-.2,0,0), Vector4(0,.2,-.2,0));
     UintSet ui(1);
     md.drawPrimalEdges(pm,Vector3(1,0,0),ui);
-    pc.save("build\\pic.bmp", true);
+    pc.save("pic.bmp", true);
 }
 
 void createMesh(){
@@ -64,21 +64,19 @@ void createMesh(){
             msh.insertNode(pt,0,0,false);
     }
     msh.fillBoundaryFlags(BOUNDARYFLAG);
-
     // cout << "USING CUBE MESH" <<endl;
     // msh.clear();
     // msh.createGrid(Vector4(0,0,0,0), EDGELENGTH*Vector4(1,1,1,0), BOUNDARYLENGTH*Vector4(1,1,1,1));
-
     pm.swap(msh);
     Text t;
     pm.writeStatistics(t);
-    t.save("build\\meshstats.txt");
+    t.save("meshstats.txt");
     savePicture();
 }
 
 // Calculate largest eigenvalue through power iteration
 // https://en.wikipedia.org/wiki/Power_iteration
-double largestEig(Sparse<double> m, uint iterc){
+double largestEig(Sparse<double> m, uint iterc=100){
     Random rnd(321);
     Buffer<double> v(m.m_height);
     for(uint i=0; i<m.m_height; i++)
@@ -97,6 +95,13 @@ double rnd(const Buffer<double> &q){
     return rndam.getUniform();
 }
 
+/**
+ * save matrix M in sparce row format:
+ * first line: nonzero values (vals)
+ * second line: column indices (cols)
+ * third line: row indices (rows)
+ * such that M[rows[i]][cols[i]] = vals[i]
+ */
 void saveMatrix(Sparse<double> &m){
     Text txt;
     for(uint i=0; i<m.m_val.size(); i++)
@@ -111,7 +116,7 @@ void saveMatrix(Sparse<double> &m){
     }
     for(uint i=0; i<m.m_val.size()-m.m_beg[m.m_beg.size()-1]; i++)
         txt << m.m_beg.size()-1 << " ";
-    txt.save("build\\SystemMatrix.txt");
+    txt.save("SystemMatrix.txt");
 }
 
 void createOperations(Dec &dec){
@@ -120,13 +125,27 @@ void createOperations(Dec &dec){
     dec.integrateHodge(HodgeUnit3, 0, fg_prim2, h2);
     dec.integrateHodge(HodgeUnit3, 0, fg_prim1, h1i).invert();
     dec.integrateHodge(HodgeUnit3, 0, fg_prim2, h2i).invert();
+    // Buffer<pair<uint,double>> edgeFlags(pm.getEdgeSize());//index out of bounds for sparse diag*sparce
+    // for(uint i=0; i<pm.getEdgeSize(); i++)
+    //     if(pm.getEdgeFlag(i)!=BOUNDARYFLAG)
+    //         edgeFlags.push_back(make_pair(i,1.0));
+    // diriclet.setSparse(pm.getEdgeSize(), edgeFlags);
+    Buffer<double> edgeFlags(pm.getEdgeSize());
+    for(uint i=0; i<pm.getEdgeSize(); i++)
+        edgeFlags[i] = pm.getEdgeFlag(i)==BOUNDARYFLAG ? 0.0 : 1.0;
+    diriclet.setFull(edgeFlags);
 }
 
+/**
+ * maximal global timestep, CFL condition:
+ * dt < 2/sqrt(lambda), where lambda is the largest eigenvalue
+ * of the system matrix. see refs
+ */
 double calculateGlobalTimestep(){
     Sparse<double> systemMatrix;
     systemMatrix = h1i*transpose(d1)*h2*d1;
-    saveMatrix(systemMatrix);
-    double le = largestEig(systemMatrix, 100);
+    // saveMatrix(systemMatrix);
+    double le = largestEig(systemMatrix);
     cout << "\tlargest eigenvalue " << le;
     double dt = CFLCONST/sqrt(le);
     cout << "\n\ttimestep size " << dt << " iterations " << int(SIMULATIONPERIOD/dt);
@@ -134,143 +153,149 @@ double calculateGlobalTimestep(){
     return dt;
 }
 
+/**
+ * Iterate with global timestep and record energynorm
+ */
 void iterateGlobal(Dec &dec){
     double dt = calculateGlobalTimestep();
-    Buffer<double> edgeFlags(pm.getEdgeSize());
-    for(uint i=0; i<pm.getEdgeSize(); i++)
-        edgeFlags[i]=pm.getEdgeFlag(i)==BOUNDARYFLAG ? 0 : 1;
-    Diagonal<double> diriclet(edgeFlags,0.0);
     Sparse<double> A,B;
     A.setScale(dt,diriclet*h1i*transpose(d1));
     B.setScale(dt,-h2*d1);
     Column<double> e(0.0), h(0.0);
 	dec.integrateForm(rnd, 10, fg_prim1, e);
-    e=diriclet*e;
 	dec.integrateZeroForm(fg_prim2, h);
-    uint source = pm.findNode(Vector4(EDGELENGTH/2.0,EDGELENGTH/2.0,EDGELENGTH/2.0,0),0.1);
-    cout << "\tsource position: " << source <<  " " << pm.getNodePosition3(source).x << endl;
-    const double fm = 5.0;
-    const double lev = 20/(PI*fm);
+    e=diriclet*e;//initial state needs to comply with boundary conditions
     Text sol;
-    Text pulse;
     double timesteps = SIMULATIONPERIOD/dt;
+    cout << "\titerating";
+    double goal = timesteps/10.0;
     for(double i=0; i<timesteps; i++){
         h+=B*e;
-        double p = 0.5*((e+A*h).getDot(h1*e) +  h.getDot(h2i*h));
+        // double p = 0.5*((e+A*h).getDot(h1*e) +  h.getDot(h2i*h));//energy at syncronized timesteps
         e+=A*h;
-        double j = exp(-(i*dt-3*lev)*(i*dt-3*lev)/(lev*lev))*sin(PIx2*fm*(i*dt-3*lev));
-        // e.m_val[source]+=j;
-        // double p=0.5*(e.getDot(h1*e) + h.getDot(h2i*h));
+        double p=0.5*(e.getDot(h1*e) + h.getDot(h2i*h));
         sol << p << "\n";
-        pulse << j << "\n";
+        if(i>goal){
+            cout << "*";
+            goal+=timesteps/10.0;
+        }
     }
-    sol.save("build\\globalTimestepEnergy.txt");
-    pulse.save("build\\sourcePulse.txt");
+    sol.save("globalTimestepEnergy.txt");
 }
 
-void calculateLocalTimestepLimits(Buffer<double> &et, Buffer<double> &ht){
-    uint en = pm.getEdgeSize();
-    Column<double> maxet(en,0.0);
-    for(uint i=0; i<en; i++)
-        maxet.m_val[i] = sqrt(fabs(h1i.m_val[i]));
-    Sparse<double> systeme(0.0);
-    systeme = h1i*transpose(d1)*h2*d1;
-    for(uint i=0; i<systeme.m_val.size(); i++)
-        systeme.m_val[i] = fabs(systeme.m_val[i]);
-    systeme = systeme*maxet;
-    et.resize(en);
-    for(uint i=0; i<en; i++)
-        et[i] = sqrt(NONUNIFORMC*maxet.m_val[i]/systeme.m_val[i]);
+/**
+ * Jukka chp 7.1
+ * some dual areas were negative, taking absolute value was enough to fix this.
+ */
+void calculateLocalTimestepLimits(Buffer<double> &max_ts_e, Buffer<double> &max_ts_h){
+    uint num_edges = pm.getEdgeSize();
+    Column<double> e_max_val(num_edges,0.0);
+    for(uint i=0; i<num_edges; i++)
+        e_max_val.m_val[i] = sqrt(fabs(h1i.m_val[i]));
+    Sparse<double> system_e(0.0);
+    system_e = h1i*transpose(d1)*h2*d1;
+    for(uint i=0; i<system_e.m_val.size(); i++)
+        system_e.m_val[i] = fabs(system_e.m_val[i]);
+    system_e = system_e*e_max_val;
+    max_ts_e.resize(num_edges);
+    for(uint i=0; i<num_edges; i++)
+        max_ts_e[i] = sqrt(NONUNIFORMC*e_max_val.m_val[i]/system_e.m_val[i]);
 
-    // h1.m_val.print();
-    // maxet.m_val.print();
-    // systeme.m_val.print();
-    // et.print();
-
-    uint ef = pm.getFaceSize();
-    Column<double> maxht(ef,0.0);
-    for(uint i=0; i<ef; i++)
-        maxht.m_val[i] = sqrt(fabs(h2.m_val[i]));
-    Sparse<double> systemh(0.0);
-    systemh = h2*d1*h1i*transpose(d1);
-    for(uint i=0; i<systemh.m_val.size(); i++)
-        systemh.m_val[i] = fabs(systemh.m_val[i]);
-    systemh = systemh*maxht;
-    ht.resize(ef);
-    for(uint i=0; i<ef; i++)
-        ht[i] = sqrt(NONUNIFORMC*maxht.m_val[i]/systemh.m_val[i]);
+    uint num_faces = pm.getFaceSize();
+    Column<double> h_max_val(num_faces,0.0);
+    for(uint i=0; i<num_faces; i++)
+        h_max_val.m_val[i] = sqrt(fabs(h2.m_val[i]));
+    Sparse<double> system_h(0.0);
+    system_h = h2*d1*h1i*transpose(d1);
+    for(uint i=0; i<system_h.m_val.size(); i++)
+        system_h.m_val[i] = fabs(system_h.m_val[i]);
+    system_h = system_h*h_max_val;
+    max_ts_h.resize(num_faces);
+    for(uint i=0; i<num_faces; i++)
+        max_ts_h[i] = sqrt(NONUNIFORMC*h_max_val.m_val[i]/system_h.m_val[i]);
     
-    cout << "\te max timestep: " << et.max() << " min: " << et.min();
-    cout << "\n\th max timestep: " << ht.max() << " min: " << ht.min();
+    cout << "\te max timestep: " << max_ts_e.max() << " min: " << max_ts_e.min();
+    cout << "\n\th max timestep: " << max_ts_h.max() << " min: " << max_ts_h.min();
 }
 
+/**
+ * jukka chp 7.2 find minimal timestep divisors in {1,3,9,27,...}
+ */ 
 void calculateDivisionCoeficcients(Buffer<double> &et, Buffer<double> &ht, double dt, Buffer<uint> &ecoeffs, Buffer<uint> &hcoeffs){
     int count[10] = {};
 
-    uint ne = et.size();
-    ecoeffs.resize(ne);
-    for(uint i=0; i<ne; i++){
-        Buffer<uint> nbf = pm.getEdgeFaces(i);
+    uint num_edges = et.size();
+    ecoeffs.resize(num_edges);
+    for(uint i=0; i<num_edges; i++){
+        Buffer<uint> edge_faces = pm.getEdgeFaces(i);
         double mindt = et[i];
-        for(uint j=0; j<nbf.size(); j++)
-            mindt = min(mindt, ht[nbf[j]]);
-        int dc = 1;
+        for(uint j=0; j<edge_faces.size(); j++)
+            mindt = min(mindt, ht[edge_faces[j]]);
+        int ts_divisor = 1;
         int pow = 0;
-        while(mindt*dc<dt){
-            dc*=3;
+        while(mindt*ts_divisor<dt){
+            ts_divisor*=3;
             pow++;
         }
         count[pow]++;
-        ecoeffs[i]=dc;
+        ecoeffs[i]=ts_divisor;
     }
 
-    uint nf = ht.size();
-    hcoeffs.resize(nf);
-    for(uint i=0; i<nf; i++){
-        Buffer<uint> nbe = pm.getFaceEdges(i);
+    uint num_faces = ht.size();
+    hcoeffs.resize(num_faces);
+    for(uint i=0; i<num_faces; i++){
+        Buffer<uint> face_edges = pm.getFaceEdges(i);
         double mindt = ht[i];
-        for(uint j=0; j<nbe.size(); j++)
-            mindt = min(mindt, et[nbe[j]]);
-        int dc = 1;
+        for(uint j=0; j<face_edges.size(); j++)
+            mindt = min(mindt, et[face_edges[j]]);
+        int ts_divisor = 1;
         int pow = 0;
-        while(mindt*dc<dt){
-            dc*=3;
+        while(mindt*ts_divisor<dt){
+            ts_divisor*=3;
             pow++;
         }
         count[pow]++;
-        hcoeffs[i]=dc;
+        hcoeffs[i]=ts_divisor;
     }
-
+    //statistics
     int factor = 1;
-    double avgTs;
-    int ops = 0;
+    double avg_ts;
+    int operations_per_dt = 0;
     cout<< "\tfactor: ";
     for(int i=0; i<10; i++){
         if(count[i]!=0)
             cout << factor << ": " << count[i] << " ";
-        avgTs += count[i]*dt/factor;
-        ops += count[i]*factor;
+        avg_ts += count[i]*dt/factor;
+        operations_per_dt += count[i]*factor;
         factor*=3;
     }
-    cout << "\n\taverage timestep size: " << avgTs/(ne+nf) << "\n\toperations per unit time: " << ops/dt << endl;
+    cout << "\n\taverage timestep size: " << avg_ts/(num_edges+num_faces) << "\n\toperations per unit time: " << operations_per_dt/dt << endl;
 }
 
-void arrangeUpdates(vector<tuple<bool,uint,double>> &order, Buffer<uint> &dce, Buffer<uint> &dch){
-    int size = dce.sum()+dch.sum();
+/**
+ * sort e and h update times, Jukka chp 7.2
+ * order<tuple< is e field?, indice, update order>>
+ */
+void arrangeUpdates(vector<tuple<bool,uint,double>> &order, Buffer<uint> &e_ts_div_coeffs, Buffer<uint> &h_ts_div_coeffs){
+    int size = e_ts_div_coeffs.sum()+h_ts_div_coeffs.sum();
     order.resize(size);
     int loc = 0;
-    for(uint i=0; i<dce.size(); i++)
-        for(uint j=0; j<dce[i]; j++)
-            order[loc++]=make_tuple(true,i,(j+0.5)/dce[i]);
-    for(uint i=0; i<dch.size(); i++)
-        for(uint j=0; j<dch[i]; j++)
-            order[loc++]=make_tuple(false,i,(j+0.0)/dch[i]);
+    for(uint i=0; i<e_ts_div_coeffs.size(); i++)
+        for(uint j=0; j<e_ts_div_coeffs[i]; j++)
+            order[loc++]=make_tuple(true,i,(j+0.5)/e_ts_div_coeffs[i]);
+    for(uint i=0; i<h_ts_div_coeffs.size(); i++)
+        for(uint j=0; j<h_ts_div_coeffs[i]; j++)
+            order[loc++]=make_tuple(false,i,(j+0.0)/h_ts_div_coeffs[i]);
     sort(order.begin(), order.end(), [](const tuple<bool,uint,double> & a, const tuple<bool,uint,double> & b) -> bool
     { 
         return get<2>(a) < get<2>(b); 
     });
 }
 
+/**
+ * debuggin, print sparce matrix and a vector of its columns
+ * code that I might need again
+ */
 void printLocalOps(Sparse<double> &A, vector<Column<double>> &oA){
     if(A.m_height>=30){
         cout << "refusing to print something this big!\n";
@@ -299,11 +324,10 @@ void printLocalOps(Sparse<double> &A, vector<Column<double>> &oA){
     }
 }
 
+/**
+ * Split the matrices into vector of rows
+ */
 void makeLocalOperators(vector<Column<double>> &oA, vector<Column<double>> &oB){
-    Buffer<double> edgeFlags(pm.getEdgeSize());
-    for(uint i=0; i<pm.getEdgeSize(); i++)
-        edgeFlags[i]=pm.getEdgeFlag(i)==BOUNDARYFLAG ? 0 : 1;
-    Diagonal<double> diriclet(edgeFlags,0.0);//TODO: make sparse to save time
     Sparse<double> A,B;
     A=diriclet*h1i*transpose(d1);
     B=-h2*d1;
@@ -325,6 +349,9 @@ void makeLocalOperators(vector<Column<double>> &oA, vector<Column<double>> &oB){
     }
 }
 
+/**
+ * Iterate using local timestepping and record energy norm, Jukka chp7
+ */
 void iterateLocal1(Dec &dec){
     Buffer<double> et,ht;
     calculateLocalTimestepLimits(et,ht);
@@ -340,18 +367,13 @@ void iterateLocal1(Dec &dec){
     Column<double> e(0.0), h(0.0);
 	dec.integrateForm(rnd, 10, fg_prim1, e);
 	dec.integrateZeroForm(fg_prim2, h);
-    Buffer<double> edgeFlags(pm.getEdgeSize());
-    for(uint i=0; i<pm.getEdgeSize(); i++)
-        edgeFlags[i]=pm.getEdgeFlag(i)==BOUNDARYFLAG ? 0 : 1;
-    Diagonal<double> diriclet(edgeFlags,0.0);
     e=e*diriclet;
-    uint source = pm.findNode(Vector4(EDGELENGTH/2.0,EDGELENGTH/2.0,EDGELENGTH/2.0,0),0.1);
-    cout << "\tsource position: " << source <<  " " << pm.getNodePosition3(source).x << endl;
-    uint n;
     Text sol;
+    cout << "\titerating";
+    double goal = steps/10.0;
     for(double i=0; i<steps; i++){
         for(auto a : updateOrder){
-            n = get<1>(a);
+            uint n = get<1>(a);
             if(get<0>(a))
                 e.m_val[n]+=dt/dce[n]*A[n].getDot(h);
             else
@@ -359,21 +381,36 @@ void iterateLocal1(Dec &dec){
         }
         double p=0.5*(e.getDot(h1*e) + h.getDot(h2i*h));
         sol << p << "\n";
+        if(i>goal){
+            cout << "*";
+            goal+=steps/10.0; 
+        }
     }
-    sol.save("build\\localTimestepEnergy.txt");
+    sol.save("localTimestepEnergy.txt");
+}
+
+std::chrono::_V2::system_clock::time_point starttime;
+void toc(){
+    cout << "\tcomplete in: " << chrono::duration<double>(chrono::system_clock::now() - starttime).count() << endl;
+    starttime = chrono::system_clock::now();
 }
 
 int main() {
+    starttime = chrono::system_clock::now();
     //create random delaunay triangulation of a cube
     cout << "meshing ... \n";
-    createMesh();
+    createMesh(); 
+    toc(); 
     //calculate opertators
     cout << "making operators ... \n";
     Dec dec(pm, 0, pm.getDimension());
     createOperations(dec);
+    toc();
     //iterate over time and record energy norm
     cout << "timestepping with global timestep ... \n";
-    iterateGlobal(dec);
+    iterateGlobal(dec); 
+    toc();
     cout << "timestepping with local timestep ... \n";
     iterateLocal1(dec);
+    toc();
 }

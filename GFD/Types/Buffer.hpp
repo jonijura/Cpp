@@ -89,7 +89,7 @@ public:
 		std::cout << std::endl;
 	}
 	T max() {
-		if(m_size==0)return NULL;
+		if(m_size==0)throw std::invalid_argument( "array not initialized" );
 		T max = m_data[0];
 		for(uint i=0; i<m_size; i++){
 			if(m_data[i]>max)
@@ -98,7 +98,7 @@ public:
 		return max;
 	}
 	T min() {
-		if(m_size==0)return NULL;
+		if(m_size==0)throw std::invalid_argument( "array not initialized" );
 		T min = m_data[0];
 		for(uint i=0; i<m_size; i++){
 			if(m_data[i]<min)
@@ -107,7 +107,7 @@ public:
 		return min;
 	}
 	T sum() {
-		if(m_size==0)return NULL;
+		if(m_size==0)throw std::invalid_argument( "array not initialized" );
 		T sum = m_data[0];
 		for(uint i=1; i<m_size; i++){
 			sum += m_data[i];
