@@ -20,8 +20,8 @@ void saveVerticesAndFaces(Mesh &mesh){
             tria << nodes[i] << " ";
         tria << "\n";
     }
-    tria.save("build\\tria.txt");
-    vert.save("build\\vert.txt");
+    tria.save("tria.txt");
+    vert.save("vert.txt");
 }
 
 void savePicture(Mesh &mesh, string &s){
@@ -75,11 +75,11 @@ int main() {
     // inside.insertMesh(inside2);
     // mesh.insertMesh(inside);
     saveVerticesAndFaces(mesh);
-    string s = "build\\kuva2.bmp";
+    string s = "kuva2.bmp";
     savePicture(mesh, s);
     mesh.fillBoundaryFlags(5);
     // mesh.improveNodeByHodge(0);
     // mesh.optimizeNodes(UintSet(0));
-    string s2 = "build\\kuva3.bmp";
+    string s2 = "kuva3.bmp";
     savePicture(mesh, s2); 
 }

@@ -21,9 +21,9 @@ const double EDGELENGTH=0.3;
 const uint MESHPOINTS=EDGELENGTH*EDGELENGTH*EDGELENGTH*1000;
 const double BOUNDARYLENGTH=0.1;
 
-const double SIMULATIONPERIOD = 30.0;
+const double SIMULATIONPERIOD = 100.0;
 const double CFLCONST = 1.9;
-const double NONUNIFORMC = 3.9;
+const double NONUNIFORMC = 3.5;
 
 const uint BOUNDARYFLAG = 1;
 
@@ -166,14 +166,15 @@ void iterateGlobal(Dec &dec){
 	dec.integrateZeroForm(fg_prim2, h);
     e=diriclet*e;//initial state needs to comply with boundary conditions
     Text sol;
+    uint refp = pm.findNode(Vector4(EDGELENGTH/2, EDGELENGTH/2, EDGELENGTH/2,0),0.1);
     double timesteps = SIMULATIONPERIOD/dt;
     cout << "\titerating";
     double goal = timesteps/10.0;
     for(double i=0; i<timesteps; i++){
         h+=B*e;
-        // double p = 0.5*((e+A*h).getDot(h1*e) +  h.getDot(h2i*h));//energy at syncronized timesteps
+        double p = 0.5*((e+A*h).getDot(h1*e) +  h.getDot(h2i*h));//energy at syncronized timesteps
         e+=A*h;
-        double p=0.5*(e.getDot(h1*e) + h.getDot(h2i*h));
+        // double p=0.5*(e.getDot(h1*e) + h.getDot(h2i*h));
         sol << p << "\n";
         if(i>goal){
             cout << "*";
@@ -364,7 +365,7 @@ void iterateLocal1(Dec &dec){
     arrangeUpdates(updateOrder, dce, dch);
     vector<Column<double>> A,B;
     makeLocalOperators(A,B); 
-    Column<double> e(0.0), h(0.0);
+    Column<double> e(0.0), h(0.0), hsync(0.0);
 	dec.integrateForm(rnd, 10, fg_prim1, e);
 	dec.integrateZeroForm(fg_prim2, h);
     e=e*diriclet;
@@ -379,7 +380,11 @@ void iterateLocal1(Dec &dec){
             else
                 h.m_val[n]+=dt/dch[n]*B[n].getDot(e);
         }
-        double p=0.5*(e.getDot(h1*e) + h.getDot(h2i*h));
+        hsync = h;
+        for(uint i=0; i<h.m_val.size(); i++){
+            hsync.m_val[i] += 0.5*dt/dch[i]*B[i].getDot(e);
+        }
+        double p=0.5*(e.getDot(h1*e) + hsync.getDot(h2i*hsync));
         sol << p << "\n";
         if(i>goal){
             cout << "*";
