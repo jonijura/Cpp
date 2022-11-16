@@ -14,14 +14,14 @@ using namespace gfd;
 /**
  * Repeat experiments on asyncronous timesteps by Jukka and AVI
  */
-const uint RANDOMSEED=127;
+const uint RANDOMSEED=145;
 
 const double MINNODEDST=0.0001;
-const double EDGELENGTH=0.3;
+const double EDGELENGTH=1;
 const uint MESHPOINTS=EDGELENGTH*EDGELENGTH*EDGELENGTH*1000;
 const double BOUNDARYLENGTH=0.1;
 
-const double SIMULATIONPERIOD = 100.0;
+const double SIMULATIONPERIOD = 300.0;
 const double CFLCONST = 1.9;
 const double NONUNIFORMC = 3.5;
 
@@ -133,7 +133,7 @@ void createOperations(Dec &dec){
     Buffer<double> edgeFlags(pm.getEdgeSize());
     for(uint i=0; i<pm.getEdgeSize(); i++)
         edgeFlags[i] = pm.getEdgeFlag(i)==BOUNDARYFLAG ? 0.0 : 1.0;
-    diriclet.setFull(edgeFlags);
+    diriclet.setFull(edgeFlags); 
 }
 
 /**
@@ -154,6 +154,21 @@ double calculateGlobalTimestep(){
 }
 
 /**
+ * interpolating one form to x-component of vectorfield
+*/
+Vector3 getField(const Buffer<double> &val, const uint node) {
+	const Buffer<uint> par = pm.getNodeEdges(node);
+	SymMatrix3 A(0,0,0,0,0,0);
+	Vector3 b(0,0,0);
+	for(uint i=0; i<par.size(); i++) {
+		const Vector3 v = pm.getEdgeVector(par[i]).toVector3();
+		A += v.outerProduct();
+		b += v * val[par[i]];
+	}
+	return A.inverse() * b;
+}
+
+/**
  * Iterate with global timestep and record energynorm
  */
 void iterateGlobal(Dec &dec){
@@ -166,7 +181,8 @@ void iterateGlobal(Dec &dec){
 	dec.integrateZeroForm(fg_prim2, h);
     e=diriclet*e;//initial state needs to comply with boundary conditions
     Text sol;
-    uint refp = pm.findNode(Vector4(EDGELENGTH/2, EDGELENGTH/2, EDGELENGTH/2,0),0.1);
+    Text refp;
+    uint refpt = pm.findNode(Vector4(EDGELENGTH/3,EDGELENGTH/3,EDGELENGTH/3,0),0.1);
     double timesteps = SIMULATIONPERIOD/dt;
     cout << "\titerating";
     double goal = timesteps/10.0;
@@ -175,14 +191,17 @@ void iterateGlobal(Dec &dec){
         double p = 0.5*((e+A*h).getDot(h1*e) +  h.getDot(h2i*h));//energy at syncronized timesteps
         e+=A*h;
         // double p=0.5*(e.getDot(h1*e) + h.getDot(h2i*h));
+        refp << getField(e.m_val, refpt).x << " " << getField(e.m_val, refpt).y   << " " << getField(e.m_val, refpt).z << "\n";
         sol << p << "\n";
         if(i>goal){
             cout << "*";
             goal+=timesteps/10.0;
         }
     }
+    refp.save("GTSrefphistory.txt");
     sol.save("globalTimestepEnergy.txt");
 }
+
 
 /**
  * Jukka chp 7.1

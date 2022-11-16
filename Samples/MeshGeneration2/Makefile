@@ -6,7 +6,7 @@ SOURCE = Main.cpp
 
 # c++ compiler and compiler flags
 CXX = g++
-CXXFLAGS := -g -Wall -Wextra -pedantic -std=c++11
+CXXFLAGS := -O3 #-g -Wall -Wextra -pedantic -std=c++11
 N = 1
 
 # commands for insert and delete folder

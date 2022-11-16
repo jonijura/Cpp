@@ -40,7 +40,7 @@ void refine(BuilderMesh &mesh){
     Buffer<Vector4> refiningNodes;
     for(uint i=0; i<n; i++){
         Vector4 pos = mesh.getFacePosition(i);
-        if(pos.x>=0.25 && pos.y>= 0.25 &&pos.x<=0.75 && pos.y<=0.75)
+        if(pos.x>=0 && pos.y>= 0.25 &&pos.x<=1 && pos.y<=0.75)
             refiningNodes.push_back(pos);
     }
     for(uint i=0; i< refiningNodes.size(); i++){
