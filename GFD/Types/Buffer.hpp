@@ -463,9 +463,9 @@ public:
 		for(uint i=0; i<m_size; i++) m_data[i] = val;
 	}
 	T &operator [](const uint i) const { 
-		// if(i>=m_size){//too dumb to live without this
-		// 	throw std::invalid_argument( "array out of bounds" );
-		// }
+		if(i>=m_size){//too dumb to live without this
+			throw std::invalid_argument( "array out of bounds" );
+		}
 		return m_data[i];
 		
 	 }
@@ -482,6 +482,8 @@ public:
 	bool empty() const { return (m_size == 0); }
 	T &back() const { return m_data[m_size - 1]; }
 	T &front() const { return m_data[0]; }
+	T* begin() {return m_data;}
+	T* end() {return m_data+m_size;}
 
 protected:
   uint m_size;
