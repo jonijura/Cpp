@@ -14,14 +14,14 @@ const uint BOUNDARYFLAG = 1;
 /**
  * interpolate discrete 1-forms on mesh vertices
 */
-Vector3 getField(const Buffer<double> &val, const uint node) {
+Vector3 getField(const Buffer<double> &val, const uint node, Buffer<double> &hod) {
 	const Buffer<uint> par = mesh.getNodeEdges(node);
 	Matrix3 A(0,0,0,0,0,0,0,0,0);
 	Vector3 b(0,0,0);
 	for(uint i=0; i<par.size(); i++) {
 		const Vector3 v = mesh.getEdgeVector3(par[i]);
-		A += v.outerProduct();
-		b += v * val[par[i]];
+		A += hod[par[i]]*v.outerProduct();
+		b += hod[par[i]]*v * val[par[i]];
 	}
 	return A.inverse() * b;
 }
@@ -56,7 +56,7 @@ void updateComplete(uint edg, Buffer<pair<uint, uint>> &marks, queue<uint> &upda
                 if(marks[b].first==0){
                     updates.push(b);
                     marks[b]={2,a};
-                    // mesh.setEdgeFlag(b,4);
+                    mesh.setEdgeFlag(b,4);
                 }
             }
         }
@@ -76,24 +76,47 @@ void updateComplete(uint edg, Buffer<pair<uint, uint>> &marks, queue<uint> &upda
                 if(marks[b].first==0){
                     updates.push(b);
                     marks[b]={1,a};
-                    // mesh.setEdgeFlag(b,4);
+                    mesh.setEdgeFlag(b,5);
                 }
             }
         }
     }
 }
 
-int main() {
+void createReqularMesh(const double dxy, const double dt, double tmax){
     BuilderMesh bm;
-    double tmax = PI+2;
-    const double dxy = 0.3;
-    const double dt = 0.3;
-    // bm.createBccGrid(Vector3(0,0,0), Vector3(PI,PI,PI), 0.4);
     bm.createGrid(Vector4(0,0,0,0), Vector4(PI,PI,tmax,0), Vector4(dxy,dxy,dt,1));
-    // bm.createGrid(Vector4(0,0,0,0), Vector4(1,1,1,0), Vector4(0.5,0.5,0.5,1));
     bm.setMetric(SymMatrix4(1,0,1,0,0,-1,0,0,0,0));
     bm.fillBoundaryFlags(BOUNDARYFLAG);
     mesh.swap(bm);
+}
+
+void createPartlyRefinedMesh(const double dxy, const double dt, double tmax){
+    // BuilderMesh bm;
+    // bm.createTriangleGrid(Vector2(0,0), Vector2(PI,PI), dxy, true);
+    // bm.stretchLinear(Vector4(0,0,tmax,0), (uint)floor(tmax/dt));
+    // bm.setMetric(SymMatrix4(1,0,1,0,0,-1,0,0,0,0));
+    // bm.fillBoundaryFlags(1);
+    // mesh.swap(bm);
+    // cout << "mesh done\n";
+    BuilderMesh bm ,bm2;
+    bm.createTriangleGrid(Vector2(0,0), Vector2(PI/2-0.12,PI), 0.3, true);
+    bm.stretchLinear(Vector4(0,0,PI,0),16);
+    bm2.createTriangleGrid(Vector2(PI/2+0.12,0), Vector2(PI,PI), 0.2, true);
+    bm2.stretchLinear(Vector4(0,0,PI,0),24);
+    bm.insertMesh(bm2);
+    bm.setMetric(SymMatrix4(1,0,1,0,0,-1,0,0,0,0));
+    bm.fillBoundaryFlags(1);
+    mesh.swap(bm);
+    cout << "mesh done\n";
+}
+
+int main() {
+    double tmax = PI/2;
+    const double dxy = 0.3;
+    const double dt = 0.2;
+    // createReqularMesh(dxy,dt,tmax);
+    createPartlyRefinedMesh(dxy,dt,tmax);
     //status.first: 1,2,3 = node, face, solved
     //second: facenum/nodenum
     Buffer<pair<uint, uint>> marks(mesh.getEdgeSize(), {0,0});
@@ -103,24 +126,27 @@ int main() {
     Buffer<uint> initialValues;
     for(uint i = 0; i<mesh.getEdgeSize(); i++){
         auto a = mesh.getEdgePosition3(i);
+        auto nds = mesh.getEdgeNodes(i);
         if(a.z == 0 || a.x==0 || a.y==0 || a.x==PI || a.y==PI){
             initialValues.push_back(i);
             marks[i].first = 3;
             // mesh.setEdgeFlag(i,3);
         }
-        else if(abs(a.z-dt/2)<dt/4){//first timelike edges/ initial dual values
+        // if(abs(a.z-dt/2)<dt/4){//first timelike edges/ initial dual values
+        else if((mesh.getNodeFlag(nds[0]) + mesh.getNodeFlag(nds[1])>=1) &&
+                (mesh.getEdgeFlag(i)!=1) &&
+                (mesh.getNodePosition(nds[0]).z==0 || mesh.getNodePosition(nds[1]).z==0)){
             marks[i].first = 3;
-            // mesh.setEdgeFlag(i,4);
-            auto nds = mesh.getEdgeNodes(i);
+            // mesh.setEdgeFlag(i,4); 
             auto end = mesh.getNodePosition3(nds[0]);
             auto st = mesh.getNodePosition3(nds[1]);
             sol.m_val[i] = (int)mesh.getEdgeIncidence(i,nds[0])*sin(end.x)*sin(end.y)*sin(sqrt(2.0)*end.z) / sqrt(2.0)
                         +(int)mesh.getEdgeIncidence(i,nds[1])*sin(st.x)*sin(st.y)*sin(sqrt(2.0)*st.z) / sqrt(2.0);
         }
     }
-    savePicture();
     for(auto a : initialValues)
         updateComplete(a, marks, updates);
+    savePicture();
     cout << updates.size();
     Dec dec(mesh, 0, mesh.getDimension());
     Derivative d1, d0T;
@@ -136,6 +162,11 @@ int main() {
         // else if(h1val[i]==-0.125)mesh.setEdgeFlag(i, 5);
         // else if(h1val[i]==-0.25)mesh.setEdgeFlag(i, 6);
     }
+    uint countNeg = 0;
+    for(auto a : h1val){
+        if(a<0)countNeg++;
+    }
+    if(countNeg == 0)throw std::invalid_argument( "no negative hodge elements!" );
     Diagonal<double> h1(h1val, 0.0);
     //timestepping
     while(updates.size()!=0){
@@ -145,12 +176,12 @@ int main() {
         if(marks[ind].first==2){
             marks[ind].first=3;
             sol.m_val[ind] = -(int)mesh.getFaceIncidence(j, ind)*(d1*sol).m_val[j];
-            // mesh.setEdgeFlag(ind,5);
+            mesh.setEdgeFlag(ind,5);
         }
         else if(marks[ind].first==1){
             marks[ind].first=3;
             sol.m_val[ind] = -(int)mesh.getEdgeIncidence(ind, j)/h1.m_val[ind] * (d0T*h1*sol).m_val[j];
-            // mesh.setEdgeFlag(ind, 3);   
+            mesh.setEdgeFlag(ind, 3);   
         }
         updateComplete(ind, marks, updates);
         // savePicture();
@@ -160,16 +191,16 @@ int main() {
     Text freq2;
     for(uint i=0; i<mesh.getNodeSize(); i++){
         Vector3 pos = mesh.getNodePosition3(i);
-        if(abs(pos.z-tmax)<1e-5){
-            Vector3 interp = getField(sol.m_val, i);
+        if(abs(pos.z-tmax)<1e-5){//
+            Vector3 interp = getField(sol.m_val, i, h1.m_val);
             res << pos.x << " " << pos.y << " " << interp.x << " " << interp.y << " " <<  interp.z << "\n";
         }
         if(abs(pos.x-PI/2) + abs(pos.y-PI/2)<0.1){
-            Vector3 interp = getField(sol.m_val, i);
+            Vector3 interp = getField(sol.m_val, i, h1.m_val);
             freq << interp.z << " " << pos.z << "\n";
         }
         if(pos.x + abs(pos.y-PI/2)<0.1){
-            Vector3 interp = getField(sol.m_val, i);
+            Vector3 interp = getField(sol.m_val, i, h1.m_val);
             freq2 << interp.x << " " << pos.z << "\n";
         }
     }

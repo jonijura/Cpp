@@ -27,13 +27,13 @@ Vector2 getField(const Buffer<double> &val, const uint node) {
 
 void savePicture( string s = "kuva.bmp"){
     Picture pc(500,500);
+    pc.fillColor(Vector4(1,1,1,0));
     MeshDrawer md;
     md.initPicture(&pc);
     md.initPosition(Vector4(PI/2,PI/2,1,0), Vector4(PI/2,PI/2,0,0), 
                     Vector4(0.3,0,0,0), Vector4(0,0.3,0,0));
-    md.drawPrimalEdges(mesh, Vector3(0,0,1), UintSet(0));
-    md.drawPrimalEdges(mesh, Vector3(0,1,0), UintSet(1));
     md.drawDualEdges(mesh, Vector3(1,0,0));
+    md.drawPrimalEdges(mesh, Vector3(0,0,1));
     pc.save(s, true);
 }
 
@@ -75,11 +75,16 @@ void updateComplete(uint edg, Buffer<pair<uint, uint>> &marks, queue<uint> &upda
 }
 
 int main() {
-    BuilderMesh bm;
+    BuilderMesh bm, bm2;
     bm.createTriangleGrid(Vector2(0,0), Vector2(2*PI,PI), 0.2, true);
+    // bm.createTriangleGrid(Vector2(0,0), Vector2(2*PI,PI/2-.1), 0.3, true);
+    // bm2.createTriangleGrid(Vector2(0,PI/2+.1), Vector2(2*PI,PI), 0.2, true);
+    // bm.insertMesh(bm2);
     bm.setMetric(SymMatrix4(1,0,-1,0,0,0,0,0,0,0));
     bm.transform(Matrix4(0,1,0,0, 1,0,0,0, 0,0,1,0, 0,0,0,1));
     mesh.swap(bm);
+    
+    savePicture();
     //status.first: 1,2,3 = node, face, solved
     //second: facenum/nodenum
     Buffer<pair<uint, uint>> marks(mesh.getEdgeSize(), {0,0});
@@ -122,7 +127,6 @@ int main() {
         }
         updateComplete(ind, marks, updates);
     }
-    savePicture();
 
     Text res;
     for(uint i=0; i<mesh.getNodeSize(); i++){
