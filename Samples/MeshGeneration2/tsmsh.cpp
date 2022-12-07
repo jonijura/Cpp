@@ -8,21 +8,40 @@
 using namespace std;
 using namespace gfd;
 
-PartMesh mesh(0,1,2);
+// Solving pde system
+//     de=0
+//     d*e=0
+// explicitly on a 1+1-dimensional space-time mesh. e is located at the
+// mixed space-time edges and represented as a discrete one form.
+// This system corresponds to the wave equation and has a solution
+//     e = sin(x)cos(t)dx + cos(x)sin(t)dt = d(-cos(x)cos(t))
+// e is initialized at t=0, x=[0,PI], by integrating the smooth solution over corresponding edges.
+// The analytical value of this integral is simply cos(x2)cos(t2)-cos(x1)cos(t1) due to Stokes
+// 
+// The solution is chosen such that it conforms with the natural von neumann boundary e|_bound = 0
+// condition, which comes from incoplete dual forms at the boundary. No additional
+// consideration at the boundary is needed. The timestepping uses discrete versions
+// of de (when the value of all but one boundary edge of a face is known) and
+// d*e (when the value of all but one edge linked to a vertice is known / dual face is missing one edge)
+// to advance the solution one mesh at a time.
 
+
+PartMesh mesh(0,1,2);
+const double T_MAX = PI;
+const double X_MAX = PI;
 /**
  * interpolate discrete 1-forms on mesh vertices
 */
-Vector2 getField(const Buffer<double> &val, const uint node) {
-	const Buffer<uint> par = mesh.getNodeEdges(node);
-	Matrix2 A(0,0,0,0);
-	Vector2 b(0,0);
-	for(uint i=0; i<par.size(); i++) {
-		const Vector2 v = mesh.getEdgeVector2(par[i]);
-		A += v.outerProduct();
-		b += v * val[par[i]];
+Vector2 interpolateOneform(const Buffer<double> &values_on_edges, const uint node) {
+	const Buffer<uint> node_edges = mesh.getNodeEdges(node);
+	Matrix2 LHS(0,0,0,0);
+	Vector2 RHS(0,0);
+	for(uint i=0; i<node_edges.size(); i++) {
+		const Vector2 v = mesh.getEdgeVector2(node_edges[i]);
+		LHS += v.outerProduct();
+		RHS += v * values_on_edges[node_edges[i]];
 	}
-	return A.inverse() * b;
+	return LHS.inverse() * RHS;
 }
 
 void savePicture( string s = "kuva.bmp"){
@@ -40,37 +59,38 @@ void savePicture( string s = "kuva.bmp"){
 /**
  * update the list and detail of edges that can be solved via dF=0 or d*F=0
 */
-void updateComplete(uint edg, Buffer<pair<uint, uint>> &marks, queue<uint> &updates){
-    Buffer<uint> faces = mesh.getEdgeFaces(edg);
-    for(auto a : faces){
-        Buffer<uint> faceEdges = mesh.getFaceEdges(a);
-        uint missing = 0;
-        for(auto b : faceEdges)
-            if(marks[b].first!=3)missing++;
-        if(missing==1){
-            for(auto b : faceEdges){
-                if(marks[b].first==0){
-                    updates.push(b);
-                    marks[b]={2,a};
+void addSolvableEdges(uint updatedEdge, Buffer<pair<uint, uint>> &marks, queue<uint> &solvableEdges){
+    Buffer<uint> faces = mesh.getEdgeFaces(updatedEdge);
+    for(auto face : faces){
+        Buffer<uint> faceEdges = mesh.getFaceEdges(face);
+        uint unsolvedEdgesCount = 0;
+        for(auto edge : faceEdges)
+            if(marks[edge].first!=3)unsolvedEdgesCount++;
+        if(unsolvedEdgesCount==1){
+            for(auto edge : faceEdges){
+                if(marks[edge].first==0){
+                    solvableEdges.push(edge);
+                    marks[edge]={2,face};
                 }
             }
         }
     }
 
-    Buffer<uint> nodes = mesh.getEdgeNodes(edg);
-    for(auto a : nodes){
-        if(mesh.getNodePosition2(a).y>PI-1e-7){//avoid enforcing von neumann at the end of the mesh
+    Buffer<uint> nodes = mesh.getEdgeNodes(updatedEdge);
+    for(auto node : nodes){
+        //avoid enforcing von neumann boundary condition at the end of the mesh
+        if(mesh.getNodePosition2(node).y>T_MAX-1e-7){
             continue;
         }
-        Buffer<uint> nodeEdges = mesh.getNodeEdges(a);
-        uint missing = 0;
-        for(auto b : nodeEdges)
-            if(marks[b].first!=3)missing++;
-        if(missing==1){
-            for(auto b : nodeEdges){
-                if(marks[b].first==0){
-                    updates.push(b);
-                    marks[b]={1,a};
+        Buffer<uint> nodeEdges = mesh.getNodeEdges(node);
+        uint unsolvedEdgesCount = 0;
+        for(auto edge : nodeEdges)
+            if(marks[edge].first!=3)unsolvedEdgesCount++;
+        if(unsolvedEdgesCount==1){
+            for(auto edge : nodeEdges){
+                if(marks[edge].first==0){
+                    solvableEdges.push(edge);
+                    marks[edge]={1,node};
                 }
             }
         }
@@ -83,85 +103,91 @@ int main() {
     // bm.createTriangleGrid(Vector2(0,0), Vector2(2*PI,PI/2-.1), 0.3, true);
     // bm2.createTriangleGrid(Vector2(0,PI/2+.1), Vector2(2*PI,PI), 0.2, true);
     // bm.insertMesh(bm2);
-    int n = 8;
-    double r = 0.7;
-    double a = PI/((1-pow(r,n))/(1-r));
-    double c = 0.9;
-    double sz = a;
-    vector<double> vals(n+1); vals[0]=0;
-    vector<double> ts(n+1); ts[0]=c * sz;
-    for(uint i=1; i<vals.size(); i++){
-        vals[i]=vals[i-1]+sz;
-        sz = sz*r;
-        ts[i]=c*sz;
+    int discretizationLevel = 12;
+    double refiningFactor = 0.8;
+    double lengthModifier = X_MAX/((1-pow(refiningFactor,discretizationLevel))/(1-refiningFactor));
+    double CFL_limit = 0.9;
+    double currentLength = 1.0 * lengthModifier;
+    vector<double> position_x(discretizationLevel+1); 
+    position_x[0]=0;
+    vector<double> timestep_size(discretizationLevel+1); 
+    timestep_size[0]=T_MAX/ceil(T_MAX/(CFL_limit*currentLength));
+    for(uint i=1; i<position_x.size(); i++){
+        position_x[i]=position_x[i-1]+currentLength;
+        currentLength = currentLength*refiningFactor;
+        timestep_size[i]=T_MAX/ceil(T_MAX/(CFL_limit*currentLength));
     }
-    auto cmp = [](pair<double, uint> left, pair<double, uint> right) { return left.first < right.first; };
-    priority_queue<pair<double, uint>, vector<pair<double, uint>>, decltype(cmp)> pq(cmp);
-    for(uint i=0; i<vals.size(); i++)
-        pq.push({0,i});
-    while(pq.size()){
-        auto a = pq.top();
-        // cout << a.first << " " << a.second << endl;
-        pq.pop();
-        bm.insertNode(Vector4(vals[a.second], a.first,0,0),0,0,false);
-        if(a.first!=PI){
-            double next = min(a.first+ts[a.second], PI);
-            pq.push({next,a.second});
+    auto comparator = [](pair<double, uint> left, pair<double, uint> right) { return left.first < right.first; };
+    priority_queue<pair<double, uint>, vector<pair<double, uint>>, decltype(comparator)> nodePositions(comparator);
+    for(uint i=0; i<position_x.size(); i++)
+        nodePositions.push({0,i});
+    while(nodePositions.size()){
+        auto nextTimeValue = nodePositions.top();
+        nodePositions.pop();
+        bm.insertNode(Vector4(position_x[nextTimeValue.second], nextTimeValue.first,0,0),0,0,false);
+        if(nextTimeValue.first!=T_MAX){
+            double next = min(nextTimeValue.first+timestep_size[nextTimeValue.second], T_MAX);
+            nodePositions.push({next,nextTimeValue.second});
         }
     }
-    // bm.fillBoundaryFlags(1);
     bm.setMetric(SymMatrix4(1,0,-1,0,0,0,0,0,0,0));
     // bm.transform(Matrix4(0,1,0,0, 1,0,0,0, 0,0,1,0, 0,0,0,1));
     mesh.swap(bm);
     
-    savePicture();
-    //status.first: 1,2,3 = node, face, solved
-    //second: facenum/nodenum
+    savePicture("1+1tsmsh.bmp");
+    //marks.first: 1,2,3 = node rule, face rule, solved
+    //marks.second: node/face index to be used for solving
     Buffer<pair<uint, uint>> marks(mesh.getEdgeSize(), {0,0});
-    queue<uint> updates;
-    Column<double> sol(mesh.getEdgeSize(), 0.0);
+    queue<uint> solvableEdges;
+    Column<double> solution(mesh.getEdgeSize(), 0.0);
     //edges at the bottom row
     Buffer<uint> initialValues;
     for(uint i = 0; i<mesh.getEdgeSize(); i++){
         if(mesh.getEdgePosition2(i).y == 0){
             initialValues.push_back(i);
             marks[i].first = 3;
-            auto n = mesh.getEdgeNodes(i);
-            sol.m_val[i] = cos(mesh.getNodePosition1(n[0]))-cos(mesh.getNodePosition1(n[1]));
+            auto nodes = mesh.getEdgeNodes(i);
+            solution.m_val[i] = cos(mesh.getNodePosition1(nodes[0]))-cos(mesh.getNodePosition1(nodes[1]));
         }
     }
-    for(auto a : initialValues)
-        updateComplete(a, marks, updates);
+    for(auto edge : initialValues)
+        addSolvableEdges(edge, marks, solvableEdges);
     
     Dec dec(mesh, 0, mesh.getDimension());
     Derivative d1, d0T;
-    d1 = dec.integrateDerivative(fg_prim1,d1);
-    d0T = dec.integrateDerivative(fg_dual1,d0T);//wont work for 3 dimensions?
-    //integrate hodge is too difficult to use, this accounts for negative hodge-elements
-    Buffer<double> h1val(mesh.getEdgeSize());
+    d1 = dec.integrateDerivative(fg_prim1, d1);
+    d0T = dec.integrateDerivative(fg_dual1, d0T);//wont work for 3 dimensions?
+    //construction of hodge, negative sign for timelike edges comes automatically
+    Buffer<double> h1_values(mesh.getEdgeSize());
     for(uint i = 0 ; i<mesh.getEdgeSize(); i++)
-        h1val[i] = mesh.getEdgeHodge(i);
-    Diagonal<double> h1(h1val, 0.0);
-    //timestepping
-    while(updates.size()!=0){
-        uint ind = updates.front();
-        uint j = marks[ind].second;
-        updates.pop();
-        if(marks[ind].first==2){
-            marks[ind].first=3;
-            sol.m_val[ind] = -(int)mesh.getFaceIncidence(j, ind)*(d1*sol).m_val[j];
+        h1_values[i] = mesh.getEdgeHodge(i);
+    Diagonal<double> h1(h1_values, 0.0);
+    //timestepping, replace matrix multiplications for speed
+    while(solvableEdges.size()!=0){
+        uint i = solvableEdges.front();
+        uint j = marks[i].second;
+        solvableEdges.pop();
+        if(marks[i].first==2){
+            solution.m_val[i] = -(int)mesh.getFaceIncidence(j, i)*(d1*solution).m_val[j];
         }
-        else if(marks[ind].first==1){
-            marks[ind].first=3;
-            sol.m_val[ind] = -(int)mesh.getEdgeIncidence(ind, j)/h1.m_val[ind] * (d0T*h1*sol).m_val[j];
+        else if(marks[i].first==1){
+            solution.m_val[i] = -(int)mesh.getEdgeIncidence(i, j)/h1.m_val[i] * (d0T*h1*solution).m_val[j];
         }
-        updateComplete(ind, marks, updates);
+        marks[i].first=3;
+        addSolvableEdges(i, marks, solvableEdges);
     }
 
-    Text res;
+    Text resultsInterpolated;
     for(uint i=0; i<mesh.getNodeSize(); i++){
         Vector2 pos = mesh.getNodePosition2(i);
-        res << pos.x << " " << pos.y << " " << getField(sol.m_val, i).x << " " << getField(sol.m_val, i).y << "\n";
+        resultsInterpolated << pos.x << " " << pos.y << " " << interpolateOneform(solution.m_val, i).x << " " << interpolateOneform(solution.m_val, i).y << "\n";
     }
-    res.save("tsmsh.txt");
+    resultsInterpolated.save("1+1interpolated.txt");
+    Text resultsForm;
+    for(uint i=0; i<mesh.getEdgeSize(); i++){
+        auto nodes = mesh.getEdgeNodes(i);
+        Vector2 pos = mesh.getNodePosition2(nodes[0]),  pos2 = mesh.getNodePosition2(nodes[1]);
+        resultsForm << pos.x << " " << pos.y << " " <<  pos2.x << " " << pos2.y << " "  << solution.m_val[i] << "\n";
+    }
+    resultsForm.save("1+1form.txt");
 }

@@ -29,7 +29,7 @@ void savePicture(){
 /**
  * update the list and detail of edges that can be solved via dF=0 or d*F=0
 */
-void updateComplete(uint edg, Buffer<pair<uint, uint>> &marks, queue<uint> &updates){
+void addSolvableEdges(uint edg, Buffer<pair<uint, uint>> &marks, queue<uint> &updates){
     Buffer<uint> faces = mesh.getEdgeFaces(edg);
     for(auto a : faces){
         Buffer<uint> faceEdges = mesh.getFaceEdges(a);
@@ -102,7 +102,7 @@ int main() {
     }
     queue<uint> updates;
     for(auto a : initialValues){
-        updateComplete(a, marks, updates);
+        addSolvableEdges(a, marks, updates);
     }
     savePicture();
     while(updates.size()!=0){
@@ -116,7 +116,7 @@ int main() {
             marks[ind].first=3;
             mesh.setEdgeFlag(ind, 4);   
         }
-        updateComplete(ind, marks, updates);
+        addSolvableEdges(ind, marks, updates);
     }
     savePicture();
 }

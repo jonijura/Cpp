@@ -44,7 +44,7 @@ void savePicture(){
 /**
  * update the list and detail of edges that can be solved via dF=0 or d*F=0
 */
-void updateComplete(uint edg, Buffer<pair<uint, uint>> &marks, queue<uint> &updates){
+void addSolvableEdges(uint edg, Buffer<pair<uint, uint>> &marks, queue<uint> &updates){
     Buffer<uint> faces = mesh.getEdgeFaces(edg);
     for(auto a : faces){
         Buffer<uint> faceEdges = mesh.getFaceEdges(a);
@@ -145,7 +145,7 @@ int main() {
         }
     }
     for(auto a : initialValues)
-        updateComplete(a, marks, updates);
+        addSolvableEdges(a, marks, updates);
     savePicture();
     cout << updates.size();
     Dec dec(mesh, 0, mesh.getDimension());
@@ -183,7 +183,7 @@ int main() {
             sol.m_val[ind] = -(int)mesh.getEdgeIncidence(ind, j)/h1.m_val[ind] * (d0T*h1*sol).m_val[j];
             mesh.setEdgeFlag(ind, 3);   
         }
-        updateComplete(ind, marks, updates);
+        addSolvableEdges(ind, marks, updates);
         // savePicture();
     }
     Text res;
