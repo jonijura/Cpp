@@ -72,11 +72,6 @@ void updateComplete(uint edg, Buffer<pair<uint, uint>> &marks, queue<uint> &upda
 int main() {
     BuilderMesh bm;
     bm.createTriangleGrid(Vector2(0,0), Vector2(0.45,1), 0.3, true);
-    // bm.createA15Grid(Vector3(0,0,0), Vector3(1,1,1), 0.5);
-    // bm.createGrid(Vector4(0,0,0,0), Vector4(1,1,1,0), 0.5*Vector4(1,1,1,1));
-    // bm.createGrid(Vector4(0,0,0,0), Vector4(1,1,1,0), Vector4(0.5,0.5,0.5,1));
-    // for(uint i=0; i<bm.getNodeSize(); i++)
-    //     if(bm.getNodeFlag(i)!=1)bm.setNodeFlag(i,2);
     bm.stretchLinear(Vector4(0,0,0.6,0),4);
     BuilderMesh bm2;
     bm2.createTriangleGrid(Vector2(0.55,0), Vector2(1,1), 0.2, true);

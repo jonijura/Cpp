@@ -59,6 +59,9 @@ void updateComplete(uint edg, Buffer<pair<uint, uint>> &marks, queue<uint> &upda
 
     Buffer<uint> nodes = mesh.getEdgeNodes(edg);
     for(auto a : nodes){
+        if(mesh.getNodePosition2(a).y>PI-1e-7){//avoid enforcing von neumann at the end of the mesh
+            continue;
+        }
         Buffer<uint> nodeEdges = mesh.getNodeEdges(a);
         uint missing = 0;
         for(auto b : nodeEdges)
@@ -76,12 +79,39 @@ void updateComplete(uint edg, Buffer<pair<uint, uint>> &marks, queue<uint> &upda
 
 int main() {
     BuilderMesh bm, bm2;
-    bm.createTriangleGrid(Vector2(0,0), Vector2(2*PI,PI), 0.2, true);
+    // bm.createTriangleGrid(Vector2(0,0), Vector2(PI,PI), 0.2, true);
     // bm.createTriangleGrid(Vector2(0,0), Vector2(2*PI,PI/2-.1), 0.3, true);
     // bm2.createTriangleGrid(Vector2(0,PI/2+.1), Vector2(2*PI,PI), 0.2, true);
     // bm.insertMesh(bm2);
+    int n = 8;
+    double r = 0.7;
+    double a = PI/((1-pow(r,n))/(1-r));
+    double c = 0.9;
+    double sz = a;
+    vector<double> vals(n+1); vals[0]=0;
+    vector<double> ts(n+1); ts[0]=c * sz;
+    for(uint i=1; i<vals.size(); i++){
+        vals[i]=vals[i-1]+sz;
+        sz = sz*r;
+        ts[i]=c*sz;
+    }
+    auto cmp = [](pair<double, uint> left, pair<double, uint> right) { return left.first < right.first; };
+    priority_queue<pair<double, uint>, vector<pair<double, uint>>, decltype(cmp)> pq(cmp);
+    for(uint i=0; i<vals.size(); i++)
+        pq.push({0,i});
+    while(pq.size()){
+        auto a = pq.top();
+        // cout << a.first << " " << a.second << endl;
+        pq.pop();
+        bm.insertNode(Vector4(vals[a.second], a.first,0,0),0,0,false);
+        if(a.first!=PI){
+            double next = min(a.first+ts[a.second], PI);
+            pq.push({next,a.second});
+        }
+    }
+    // bm.fillBoundaryFlags(1);
     bm.setMetric(SymMatrix4(1,0,-1,0,0,0,0,0,0,0));
-    bm.transform(Matrix4(0,1,0,0, 1,0,0,0, 0,0,1,0, 0,0,0,1));
+    // bm.transform(Matrix4(0,1,0,0, 1,0,0,0, 0,0,1,0, 0,0,0,1));
     mesh.swap(bm);
     
     savePicture();
