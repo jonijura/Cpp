@@ -15,7 +15,7 @@ using namespace gfd;
 // mixed space-time edges and represented as a discrete one form.
 // This system corresponds to the wave equation and has a solution
 //     e = sin(x)cos(t)dx + cos(x)sin(t)dt = d(-cos(x)cos(t))
-// e is initialized at t=0, x=[0,PI], by integrating the smooth solution over corresponding edges.
+// e is initialized at t=0, x=[0,X_MAX], by integrating the smooth solution over corresponding edges.
 // The analytical value of this integral is simply cos(x2)cos(t2)-cos(x1)cos(t1) due to Stokes
 // 
 // The solution is chosen such that it conforms with the natural von neumann boundary e|_bound = 0
@@ -23,7 +23,9 @@ using namespace gfd;
 // consideration at the boundary is needed. The timestepping uses discrete versions
 // of de (when the value of all but one boundary edge of a face is known) and
 // d*e (when the value of all but one edge linked to a vertice is known / dual face is missing one edge)
-// to advance the solution one mesh at a time.
+// to advance the solution one edge at a time.
+//
+// there are three mesh options to modify and choose from at the start of the main function
 
 
 PartMesh mesh(0,1,2);
@@ -97,16 +99,32 @@ void addSolvableEdges(uint updatedEdge, Buffer<pair<uint, uint>> &marks, queue<u
     }
 }
 
-int main() {
+void createReqularMesh(double dx = 0.2){
+    BuilderMesh bm;
+    bm.createTriangleGrid(Vector2(0,0), Vector2(T_MAX,X_MAX), dx, true);
+    bm.setMetric(SymMatrix4(1,0,-1,0,0,0,0,0,0,0));
+    bm.transform(Matrix4(0,1,0,0, 1,0,0,0, 0,0,1,0, 0,0,0,1));
+    mesh.swap(bm);
+}
+
+void createOnceRefinedMesh( double coarsedx = 0.3, double finedx = 0.2){
     BuilderMesh bm, bm2;
-    // bm.createTriangleGrid(Vector2(0,0), Vector2(PI,PI), 0.2, true);
-    // bm.createTriangleGrid(Vector2(0,0), Vector2(2*PI,PI/2-.1), 0.3, true);
-    // bm2.createTriangleGrid(Vector2(0,PI/2+.1), Vector2(2*PI,PI), 0.2, true);
-    // bm.insertMesh(bm2);
-    int discretizationLevel = 12;
-    double refiningFactor = 0.8;
+    double meshSpacing = (coarsedx+finedx)/2;
+
+    bm.createTriangleGrid(Vector2(0,0), Vector2(T_MAX, X_MAX/2-meshSpacing/2), coarsedx, true);
+    bm2.createTriangleGrid(Vector2(0,X_MAX/2+meshSpacing/2), Vector2(T_MAX, X_MAX), finedx, true);
+    bm.insertMesh(bm2);
+    bm.setMetric(SymMatrix4(1,0,-1,0,0,0,0,0,0,0));
+    bm.transform(Matrix4(0,1,0,0, 1,0,0,0, 0,0,1,0, 0,0,0,1));
+    mesh.swap(bm);
+}
+
+void createContinouslyRefinedMesh(  int discretizationLevel = 12, 
+                                    double refiningFactor = 0.8, 
+                                    double CFL_limit = 0.9){
+
+    BuilderMesh bm;
     double lengthModifier = X_MAX/((1-pow(refiningFactor,discretizationLevel))/(1-refiningFactor));
-    double CFL_limit = 0.9;
     double currentLength = 1.0 * lengthModifier;
     vector<double> position_x(discretizationLevel+1); 
     position_x[0]=0;
@@ -131,9 +149,15 @@ int main() {
         }
     }
     bm.setMetric(SymMatrix4(1,0,-1,0,0,0,0,0,0,0));
-    // bm.transform(Matrix4(0,1,0,0, 1,0,0,0, 0,0,1,0, 0,0,0,1));
     mesh.swap(bm);
-    
+}
+
+int main() {
+    // choose your mesh and refining parameters
+    // createReqularMesh(0.2);
+    // createOnceRefinedMesh(0.5, 0.2);
+    createContinouslyRefinedMesh(12, 0.8, 0.9);
+
     savePicture("1+1tsmsh.bmp");
     //marks.first: 1,2,3 = node rule, face rule, solved
     //marks.second: node/face index to be used for solving
@@ -162,7 +186,7 @@ int main() {
     for(uint i = 0 ; i<mesh.getEdgeSize(); i++)
         h1_values[i] = mesh.getEdgeHodge(i);
     Diagonal<double> h1(h1_values, 0.0);
-    //timestepping, replace matrix multiplications for speed
+    //timestepping, replacing matrix multiplications should speed up the program a lot
     while(solvableEdges.size()!=0){
         uint i = solvableEdges.front();
         uint j = marks[i].second;
