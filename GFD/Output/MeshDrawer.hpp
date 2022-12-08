@@ -16,7 +16,7 @@ public:
 
 	void drawPrimalNodes(const Mesh &mesh, const Vector3 &col = Vector3(1,1,1), const UintSet &flag = UINTSETALL);
 
-	void drawPrimalEdges(const Mesh &mesh, const Vector3 &col = Vector3(1,1,1), const UintSet &flag = UINTSETALL);
+	void drawPrimalEdges(const Mesh &mesh, const Vector3 &col = Vector3(1,1,1), const UintSet &flag = UINTSETALL, double adj=0);
 	void drawPrimalEdges(const Mesh& mesh, const Buffer<Vector3>& col, const UintSet& flag = UINTSETALL);
 	void drawDualEdges(const Mesh &mesh, const Vector3 &col = Vector3(1,1,1), const UintSet &flag = UINTSETALL);
 

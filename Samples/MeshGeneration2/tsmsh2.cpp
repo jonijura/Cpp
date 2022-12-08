@@ -31,6 +31,7 @@ using namespace gfd;
 // there are different mesh options to modify and choose from at the start of the main function
 
 PartMesh mesh(0,1,3);
+// BuilderMesh tmp;
 const uint BOUNDARYFLAG = 1;
 const double T_MAX = PI/2;
 const double XY_MAX = PI;
@@ -50,19 +51,31 @@ Vector3 interpolateOneForm(const Buffer<double> &values_on_edges, const uint nod
 
 void savePicture(){
     Picture pc(500,500);
+    pc.fillColor(Vector4(1,1,1,0));
     MeshDrawer md;
     md.initPicture(&pc);
-    Vector4 camera_position = Vector4(PI/2.0, -3, PI/2,0);
-    Vector4 lookDir = Vector4(PI/2.0, PI/2.0, PI/2.0, 0);
+    Vector4 camera_position = Vector4(PI/2.0, -3, PI/2+2,0);
+    Vector4 lookDir = Vector4(PI/2.0, PI/2.0, PI/2.0-1.5, 0);
     md.initPosition(camera_position, lookDir, 
-                    Vector4(.1,0,0,0), Vector4(0,.01,.1,0));
+                    Vector4(.2,0,0,0), Vector4(0,.02,.2,0));
     md.drawPrimalEdges(mesh,Vector3(1,0,0), UintSet(BOUNDARYFLAG));
     md.drawPrimalEdges(mesh,Vector3(0,1,0), UintSet(3));
     md.drawPrimalEdges(mesh,Vector3(0,0,1), UintSet(4));
     md.drawPrimalEdges(mesh,Vector3(0,1,1), UintSet(5));
     md.drawPrimalEdges(mesh,Vector3(1,0,1), UintSet(6));
+
+    //leikkauskuvan piirto
+    // for(int i=tmp.getNodeSize(); i>=0; i--){
+    //     auto a = tmp.getNodePosition3(i);
+    //     if(a.y<a.z-.5)
+    //         tmp.removeNode(i);
+    // }
+    // tmp.fillBoundaryFlags(4);
+    // md.drawBoundaryFaces(tmp, Vector3(0,1,0), UintSet(4));
+    // md.drawPrimalEdges(tmp,Vector3(0,0,1), UintSet(4), 0.01);
+
     pc.save("2+1mesh.bmp", true);
-}
+} 
 
 /**
  * update the list and detail of edges that can be solved via dF=0 or d*F=0
@@ -125,6 +138,7 @@ void createPartlyRefinedMesh(double dxy_coarse=0.3, double dxy_fine=0.2, double 
     bm.insertMesh(bm2);
     bm.setMetric(SymMatrix4(1,0,1,0,0,-1,0,0,0,0));
     bm.fillBoundaryFlags(1);
+    // tmp.swap(bm);
     mesh.swap(bm);
     cout << "mesh done\n";
 }

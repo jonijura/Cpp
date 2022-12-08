@@ -19,7 +19,7 @@ void MeshDrawer::drawPrimalNodes(const Mesh &mesh, const Vector3 &col, const Uin
 */	}
 }
 
-void MeshDrawer::drawPrimalEdges(const Mesh &mesh, const Vector3 &col, const UintSet &flag)
+void MeshDrawer::drawPrimalEdges(const Mesh &mesh, const Vector3 &col, const UintSet &flag, double adj)
 {
 	uint i;
 	for(i=0; i<mesh.getEdgeSize(); i++)
@@ -28,7 +28,7 @@ void MeshDrawer::drawPrimalEdges(const Mesh &mesh, const Vector3 &col, const Uin
 		const Buffer<uint> &en = mesh.getEdgeNodes(i);
 		const Vector4 p0 = mesh.getNodePosition(en[0]);
 		const Vector4 p1 = mesh.getNodePosition(en[1]);
-		drawLine(p0, p1, col);
+		drawLine(p0, p1, col, adj);
 	}
 }
 
@@ -100,7 +100,7 @@ void MeshDrawer::drawBoundaryFaces(const Mesh &mesh, const Vector3 &col, const U
 	{
 		if(!flag.includes(mesh.getFaceFlag(i))) continue;
 		const Buffer<uint> &b = mesh.getFaceBodies(i);
-		if(b.size() >= 2) continue;
+		if(b.size() >= 2) cout << "Not a boundary face but drawing anyway"<<endl;
 //std::cout << "a " << mesh.getFaceNodes(i).size();
 //const Buffer<uint> &e = mesh.getFaceEdges(i);
 //for(j=0; j<e.size(); j++) std::cout << " " << e[j] << " {" << mesh.getEdgeNodes(e[j])[0] << " " << mesh.getEdgeNodes(e[j])[1] << "}";

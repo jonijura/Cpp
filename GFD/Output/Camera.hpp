@@ -29,7 +29,7 @@ public:
 	const Vector4 getPicturePosition(const uint x, const uint y) const;
 
 	void drawPoint(const Vector4 &p, const Vector3 &c);
-	void drawLine(const Vector4 &p0, const Vector4 &p1, const Vector3 &c);
+	void drawLine(const Vector4 &p0, const Vector4 &p1, const Vector3 &c, double adj=0);
 	void drawPolygon(const Buffer<Vector4> &p, const Buffer<Vector3> &c, const Vector4 &proj = Vector4(0,0,0,1));
 
 protected:

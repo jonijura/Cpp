@@ -166,7 +166,7 @@ void Camera::drawPoint(const Vector4 &p, const Vector3 &c)
 	if(t.z > m_pic->getColor(uint(t.x),uint(t.y)).t) m_pic->setColor(uint(t.x), uint(t.y), Vector4(c,t.z));
 }
 
-void Camera::drawLine(const Vector4 &p0, const Vector4 &p1, const Vector3 &c)
+void Camera::drawLine(const Vector4 &p0, const Vector4 &p1, const Vector3 &c, double adj)
 {
 	if(m_isvg) // draw svg
 	{
@@ -202,7 +202,7 @@ void Camera::drawLine(const Vector4 &p0, const Vector4 &p1, const Vector3 &c)
 			if(y < hei)
 			{
 				const double dist = t0.z + (x - t0.x) / d.x * d.z;
-				if(dist > m_pic->getColor(x,y).t)
+				if(dist > m_pic->getColor(x,y).t - adj)
 				{
 					m_pic->setColor(x, y, Vector4(c,dist));
 				}
@@ -229,7 +229,7 @@ void Camera::drawLine(const Vector4 &p0, const Vector4 &p1, const Vector3 &c)
 			if(x < wid)
 			{
 				const double dist = t0.z + (y - t0.y) / d.y * d.z;
-				if(dist > m_pic->getColor(x,y).t)
+				if(dist > m_pic->getColor(x,y).t-adj)
 				{
 					m_pic->setColor(x, y, Vector4(c,dist));
 				}
