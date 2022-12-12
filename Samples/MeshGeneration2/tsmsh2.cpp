@@ -33,8 +33,9 @@ using namespace gfd;
 PartMesh mesh(0,1,3);
 // BuilderMesh tmp;
 const uint BOUNDARYFLAG = 1;
-const double T_MAX = PI/2;
+const double T_MAX = PI;
 const double XY_MAX = PI;
+const double SOLUTION_REFERENCE_TIME = PI;
 
 
 Vector3 interpolateOneForm(const Buffer<double> &values_on_edges, const uint node, Buffer<double> &h1) {
@@ -138,6 +139,9 @@ void createPartlyRefinedMesh(double dxy_coarse=0.3, double dxy_fine=0.2, double 
     bm.insertMesh(bm2);
     bm.setMetric(SymMatrix4(1,0,1,0,0,-1,0,0,0,0));
     bm.fillBoundaryFlags(1);
+    Text statsBound;
+    bm.writeStatistics(statsBound, UintSet(1));
+    statsBound.save("statsBoundary.txt");
     // tmp.swap(bm);
     mesh.swap(bm);
     cout << "mesh done\n";
@@ -160,6 +164,7 @@ void createPartlyRefinedMesh2(double dxy = 0.5){
 
     bm.setMetric(SymMatrix4(1,0,1,0,0,-1,0,0,0,0));
     bm.fillBoundaryFlags(1);
+
     mesh.swap(bm);
     savePicture();
     //build spacetime mesh with tent pitcher
@@ -168,7 +173,7 @@ void createPartlyRefinedMesh2(double dxy = 0.5){
 
 int main() {
     // createReqularMesh(0.3, 1);
-    createPartlyRefinedMesh(0.4,0.2);
+    createPartlyRefinedMesh(0.4,0.2);//the results in the article draft used createPartlyRefinedMesh(0.4,0.2);
     // createPartlyRefinedMesh2();
 
     //status.first: 1,2,3 = node, face, solved
@@ -239,24 +244,46 @@ int main() {
     }
 
     Text interpolated_result;
-    Text freq;
-    Text freq2;
     for(uint i=0; i<mesh.getNodeSize(); i++){
         Vector3 pos = mesh.getNodePosition3(i);
-        if(abs(pos.z-T_MAX)<1e-5){
+        if(abs(pos.z-SOLUTION_REFERENCE_TIME)<1e-5){
             Vector3 interp = interpolateOneForm(solution.m_val, i, h1.m_val);
             interpolated_result << pos.x << " " << pos.y << " " << interp.x << " " << interp.y << " " <<  interp.z << "\n";
         }
-        if(abs(pos.x-PI/2) + abs(pos.y-PI/2)<0.1){
+    }
+    interpolated_result.save("2+1interpolated.txt");
+
+    Text no_interpolation;
+    for(uint i=0; i<mesh.getEdgeSize(); i++){
+        auto nodes = mesh.getEdgeNodes(i);
+        Vector3 pos1 = mesh.getNodePosition3(nodes[0]);
+        Vector3 pos2 = mesh.getNodePosition3(nodes[1]);
+        no_interpolation << pos1.x << " " << pos1.y << " " << pos1.z << " "
+                         << pos2.x << " " << pos2.y << " " << pos2.z << " "
+                         << solution.m_val[i] << "\n";
+    }
+    no_interpolation.save("2+1nointerpolation.txt");
+
+    //find out the interpolation error, for this initialize exact solution and interpolate it:
+    Text interpolationError;
+    for(uint edge=0; edge<mesh.getEdgeSize(); edge++){
+        auto edge_nodes = mesh.getEdgeNodes(edge);
+        auto edge_end = mesh.getNodePosition3(edge_nodes[0]);
+        auto edge_start = mesh.getNodePosition3(edge_nodes[1]);
+        solution.m_val[edge] = (int)mesh.getEdgeIncidence(edge,edge_nodes[0])*sin(edge_end.x)*sin(edge_end.y)*sin(sqrt(2.0)*edge_end.z) / sqrt(2.0)
+            +(int)mesh.getEdgeIncidence(edge,edge_nodes[1])*sin(edge_start.x)*sin(edge_start.y)*sin(sqrt(2.0)*edge_start.z) / sqrt(2.0);
+    }
+    for(uint i=0; i<mesh.getNodeSize(); i++){
+        Vector3 pos = mesh.getNodePosition3(i);
+        if(abs(pos.z-SOLUTION_REFERENCE_TIME)<1e-5){
             Vector3 interp = interpolateOneForm(solution.m_val, i, h1.m_val);
-            freq << interp.z << " " << pos.z << "\n";
-        }
-        if(pos.x + abs(pos.y-PI/2)<0.1){
-            Vector3 interp = interpolateOneForm(solution.m_val, i, h1.m_val);
-            freq2 << interp.x << " " << pos.z << "\n";
+            interpolationError << pos.x << " " << pos.y << " " << interp.x << " " << interp.y << " " <<  interp.z << "\n";
         }
     }
-    freq.save("freq.txt");
-    freq2.save("freq2.txt");
-    interpolated_result.save("2+1interpolated.txt");
+    interpolationError.save("2+1exact_solution_interpolated.txt");
+
+    Text stats;
+    mesh.writeStatistics(stats);
+    stats.save("stats.txt");
+    cout << initialValues.size();
 }

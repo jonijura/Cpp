@@ -56,7 +56,7 @@ void savePicture( string s = "kuva.bmp"){
     md.drawDualEdges(mesh, Vector3(1,0,0));
     md.drawPrimalEdges(mesh, Vector3(0,0,1));
     pc.save(s, true);
-}
+} 
 
 /**
  * update the list and detail of edges that can be solved via dF=0 or d*F=0
@@ -125,6 +125,7 @@ void createContinouslyRefinedMesh(  int discretizationLevel = 12,
 
     BuilderMesh bm;
     double lengthModifier = X_MAX/((1-pow(refiningFactor,discretizationLevel))/(1-refiningFactor));
+    cout << to_string(lengthModifier) << "\n";
     double currentLength = 1.0 * lengthModifier;
     vector<double> position_x(discretizationLevel+1); 
     position_x[0]=0;
@@ -156,7 +157,13 @@ int main() {
     // choose your mesh and refining parameters
     // createReqularMesh(0.2);
     // createOnceRefinedMesh(0.5, 0.2);
-    createContinouslyRefinedMesh(12, 0.8, 0.9);
+
+    //doing some convergence tests, check that the required folder structure exists
+    for(uint i=3; i<9; i++){   
+        double discretization_level = i*i;
+        double finest_coarsest_ratio = 1.0/3;
+        double refinement_factor = exp(log(finest_coarsest_ratio)/discretization_level);
+    createContinouslyRefinedMesh(discretization_level, refinement_factor, 0.9);
 
     savePicture("1+1tsmsh.bmp");
     //marks.first: 1,2,3 = node rule, face rule, solved
@@ -206,12 +213,13 @@ int main() {
         Vector2 pos = mesh.getNodePosition2(i);
         resultsInterpolated << pos.x << " " << pos.y << " " << interpolateOneform(solution.m_val, i).x << " " << interpolateOneform(solution.m_val, i).y << "\n";
     }
-    resultsInterpolated.save("1+1interpolated.txt");
+    resultsInterpolated.save("conv\\" + to_string(2*i) + "interpolated.txt");
     Text resultsForm;
     for(uint i=0; i<mesh.getEdgeSize(); i++){
         auto nodes = mesh.getEdgeNodes(i);
         Vector2 pos = mesh.getNodePosition2(nodes[0]),  pos2 = mesh.getNodePosition2(nodes[1]);
         resultsForm << pos.x << " " << pos.y << " " <<  pos2.x << " " << pos2.y << " "  << solution.m_val[i] << "\n";
     }
-    resultsForm.save("1+1form.txt");
+    resultsForm.save("conv\\" + to_string((int)round(discretization_level)) + "1+1form.txt");
+    }
 }
